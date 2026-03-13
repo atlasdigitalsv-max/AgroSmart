@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - AgroSmart</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/modern_agro.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+</head>
+<body class="page-body">
+    <div id="navbar-container"></div>
+
+    <div class="container mt-4 animate-slide-up">
+        <div class="dashboard-header d-flex align-items-center mb-4 gap-3">
+            <span class="icon-agro display-4">🌾</span>
+            <h1 class="dashboard-title m-0">Dashboard de Cultivos</h1>
+        </div>
+
+        <div class="row animate-slide-up animate-delay-1" id="crops-container">
+            <!-- Crops will be injected here via JS -->
+        </div>
+
+        <section class="mt-5 mb-5 animate-slide-up animate-delay-2">
+            <h2 class="mb-3">Mapa meteorológico (en tiempo real)</h2>
+            <div id="weather-map" class="map-container"></div>
+            <p class="text-muted small mt-2" id="weather-note"></p>
+        </section>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/database.js"></script>
+    <script src="js/layout.js"></script>
+    
+    <script>
+        async function initDashboard() {
+            // Require Authentication
+            await AuthObj.requireAuth();
+
+            // Render Navbar
+            renderNavbar('dashboard');
+
+            const user = await AuthObj.getCurrentUser();
+            if (!user) return;
+
+            const crops = await window.DB.getCropsByUser(user.id);
+            const container = document.getElementById('crops-container');
+
+            if (crops.length === 0) {
+                container.innerHTML = `<div class="col-12"><div class="alert alert-info">No tienes cultivos registrados. <a href="crop_create.html">Crea uno aquí</a>.</div></div>`;
+            } else {
+                let html = '';
+                crops.forEach((c, index) => {
+                    const sowingDate = new Date(c.sowing_date).toLocaleDateString();
+                    const delayClass = `animate-delay-${(index % 3) + 1}`;
+                    html += `
+                    <div class="col-lg-4 col-md-6 mb-4">
+                        <div class="card crop-card h-100 animate-slide-up ${delayClass}">
+                            <div class="card-header">
+                                <h5>${c.name}</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted mb-3">${c.description}</p>
+                                <p class="mb-0"><strong class="me-2">Siembra:</strong>${sowingDate}</p>
+                            </div>
+                            <div class="crop-actions">
+                                <a href="crop_detail.html?id=${c.id}" class="action-btn btn-view" title="Ver detalles">🌱 Ver</a>
+                                <a href="crop_edit.html?id=${c.id}" class="action-btn btn-edit" title="Editar">✏️</a>
+                                <a href="abono_application.html?id=${c.id}" class="action-btn btn-agro p-1 text-center" title="Abonos">🧪</a>
+                                <button onclick="deleteCrop(${c.id})" class="action-btn btn-delete text-white" style="border:none;" title="Eliminar">🗑️</button>
+                            </div>
+                        </div>
+                    </div>`;
+                });
+                container.innerHTML = html;
+            }
+
+            // Map Initialization
+            const map = L.map('weather-map').setView([13.6929, -89.2182], 8);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            if (CONFIG.OPENWEATHERMAP_API_KEY) {
+                L.tileLayer(`https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=${CONFIG.OPENWEATHERMAP_API_KEY}`, {
+                    attribution: 'Weather data &copy; OpenWeatherMap'
+                }).addTo(map);
+            } else {
+                document.getElementById('weather-note').innerText = 'Nota: La capa de nube/clima requiere una API KEY de OpenWeatherMap en config.js';
+            }
+
+            const allCrops = user.is_superuser ? await window.DB.getAllCrops() : crops;
+            allCrops.forEach(c => {
+                if (c.latitude && c.longitude) {
+                    const marker = L.marker([c.latitude, c.longitude]).addTo(map);
+                    marker.bindPopup(`<b>${c.name}</b><br>${c.description}`);
+                }
+            });
+
+            if (crops.length > 0 && crops[0].latitude) {
+                map.setView([crops[0].latitude, crops[0].longitude], 10);
+            }
+        }
+
+        async function deleteCrop(id) {
+            if(confirm("¿Estás seguro de que quieres eliminar este cultivo?")) {
+                await window.DB.deleteCrop(id);
+                window.location.reload();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', initDashboard);
+    </script>
+</body>
+</html>

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendario Lunar</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/modern_agro.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+</head>
+<body class="page-body">
+    <div id="navbar-container" class="animate-slide-up"></div>
+
+    <div class="container mt-5">
+        <div class="agro-card mx-auto animate-slide-up" style="max-width:600px;">
+            <h2 class="mb-4 text-center dashboard-title">Asesor Lunar Premium</h2>
+            <div class="text-center text-muted mb-4 small">Consulta la influencia astral en tus cultivos con precisión.</div>
+            
+            <form id="moon-form" class="mb-4">
+                <div class="form-group mb-4">
+                    <label class="fw-bold mb-2">1. Selecciona Ubicación en el Mapa</label>
+                    <div id="moon-map" style="height: 300px; border-radius: 20px; border: 1px solid var(--border-color); margin-bottom: 20px;"></div>
+                    <div class="small text-muted mb-3">📍 Haz clic en el mapa para situar el pin. Coordenadas: <span id="coords-display" class="fw-bold">No seleccionadas</span></div>
+                </div>
+                <div class="form-group mb-4">
+                    <label class="fw-bold mb-2">2. Fecha de Consulta</label>
+                    <input type="date" id="date" class="form-control" required>
+                </div>
+                <button type="submit" id="btn-analyze" class="btn-primary w-100 py-3" disabled>Analizar Ciclo Astral</button>
+            </form>
+            
+            <div id="result-container" class="mt-5" style="display:none;">
+                <div class="moon-display-card text-center p-4 rounded-4 mb-4" style="background: rgba(15, 23, 42, 0.03); border: 1px solid rgba(15, 23, 42, 0.05);">
+                    <div id="moon-icon" style="font-size: 80px; filter: drop-shadow(0 0 20px rgba(14, 165, 233, 0.3));" class="animate-float mb-2"></div>
+                    <div class="text-muted small text-uppercase fw-bold letter-spacing-1 mb-1">Fase Actual</div>
+                    <div class="fs-3 fw-800" id="moon-phase" style="color: var(--text-main);"></div>
+                </div>
+
+                <div class="row g-3 animate-slide-up animate-delay-2" id="astro-details">
+                    <div class="col-6">
+                        <div class="detail-card-small p-3 text-center h-100">
+                            <div class="fs-4 mb-1">🌅</div>
+                            <div class="text-muted mini-label">Salida Sol</div>
+                            <div id="astro-sunrise" class="fw-bold"></div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="detail-card-small p-3 text-center h-100">
+                            <div class="fs-4 mb-1">🌇</div>
+                            <div class="text-muted mini-label">Puesta Sol</div>
+                            <div id="astro-sunset" class="fw-bold"></div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="detail-card-small p-3 text-center h-100">
+                            <div class="fs-4 mb-1">🌜</div>
+                            <div class="text-muted mini-label">Salida Luna</div>
+                            <div id="astro-moonrise" class="fw-bold"></div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="detail-card-small p-3 text-center h-100">
+                            <div class="fs-4 mb-1">🌛</div>
+                            <div class="text-muted mini-label">Puesta Luna</div>
+                            <div id="astro-moonset" class="fw-bold"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-4 animate-slide-up animate-delay-3">
+                    <div class="d-inline-block px-4 py-2 rounded-pill bg-primary text-white shadow-sm fw-bold">
+                        🌓 Iluminación: <span id="astro-illumination"></span>%
+                    </div>
+                </div>
+            </div>
+            
+            <div id="loading" class="mt-4 text-center" style="display:none;">
+                <div class="spinner-border text-primary" role="status"></div>
+                <div class="mt-2 text-muted small">Sincronizando con astros...</div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .detail-card-small {
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            border-radius: 20px;
+            transition: all 0.3s ease;
+        }
+        .detail-card-small:hover {
+            transform: translateY(-5px);
+            background: #fff;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+        }
+        .mini-label { font-size: 10px; text-transform: uppercase; font-weight: 700; opacity: 0.7; }
+        .letter-spacing-1 { letter-spacing: 1px; }
+    </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/database.js"></script>
+    <script src="js/layout.js"></script>
+    
+    <script>
+        async function initMoon() {
+            await AuthObj.requireAuth();
+            renderNavbar('moon');
+        }
+
+        document.addEventListener('DOMContentLoaded', initMoon);
+
+        // Initialize Map
+        const map = L.map('moon-map').setView([13.6929, -89.2182], 4); // Initial view
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        let marker = null;
+        let selectedCoords = null;
+
+        map.on('click', (e) => {
+            const { lat, lng } = e.latlng;
+            selectedCoords = { lat, lng };
+            
+            if (marker) {
+                marker.setLatLng(e.latlng);
+            } else {
+                marker = L.marker(e.latlng).addTo(map);
+            }
+            
+            document.getElementById('coords-display').innerText = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+            document.getElementById('btn-analyze').disabled = false;
+        });
+
+        // Set default date to today
+        document.getElementById('date').valueAsDate = new Date();
+
+        const MOON_PHASES = {
+            "New Moon": ["Luna Nueva", "🌑"],
+            "Waxing Crescent": ["Luna Creciente", "🌒"],
+            "First Quarter": ["Cuarto Creciente", "🌓"],
+            "Waxing Gibbous": ["Luna Gibada Creciente", "🌔"],
+            "Full Moon": ["Luna Llena", "🌕"],
+            "Waning Gibbous": ["Luna Gibada Menguante", "🌖"],
+            "Last Quarter": ["Cuarto Menguante", "🌗"],
+            "Waning Crescent": ["Luna Menguante", "🌘"]
+        };
+
+        const form = document.getElementById('moon-form');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if(!selectedCoords) return;
+
+            const date = document.getElementById('date').value;
+            const resContainer = document.getElementById('result-container');
+            const loading = document.getElementById('loading');
+            
+            resContainer.style.display = 'none';
+            loading.style.display = 'block';
+
+            try {
+                // Query using lat,lon
+                const url = `https://api.weatherapi.com/v1/astronomy.json?key=${CONFIG.WEATHER_API_KEY}&q=${selectedCoords.lat},${selectedCoords.lng}&dt=${date}`;
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data && data.astronomy && data.astronomy.astro) {
+                    const astro = data.astronomy.astro;
+                    const englishPhase = astro.moon_phase;
+                    const phaseData = MOON_PHASES[englishPhase] || [englishPhase, "🌙"];
+                    
+                    document.getElementById('moon-phase').innerText = phaseData[0];
+                    document.getElementById('moon-icon').innerText = phaseData[1];
+                    
+                    document.getElementById('astro-sunrise').innerText = astro.sunrise;
+                    document.getElementById('astro-sunset').innerText = astro.sunset;
+                    document.getElementById('astro-moonrise').innerText = astro.moonrise;
+                    document.getElementById('astro-moonset').innerText = astro.moonset;
+                    document.getElementById('astro-illumination').innerText = astro.moon_illumination;
+                    
+                    resContainer.style.display = 'block';
+                    resContainer.scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    alert('No se pudieron obtener datos lunares para esta región. Intenta con otra zona.');
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Error al conectar con el servicio astral mundial.');
+            } finally {
+                loading.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

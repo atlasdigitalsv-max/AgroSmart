@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acerca de - AgroSmart</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/modern_agro.css">
+</head>
+<body class="page-body">
+    <div id="navbar-container"></div>
+
+    <section class="about-hero animate-slide-up">
+        <div class="container">
+            <h1>Acerca de AgroSmart</h1>
+            <p>
+                AgroSmart es una plataforma integral que utiliza inteligencia artificial y tecnologías web modernas para transformar la gestión agrícola.
+            </p>
+        </div>
+    </section>
+
+    <section class="team-section mb-5 animate-slide-up animate-delay-1">
+        <h2 class="text-center mb-4 dashboard-title">Integrantes</h2>
+        <div class="team-grid">
+            <div class="team-member animate-slide-up animate-delay-1">
+                <img src="img/Yensi.JPG" class="team-img" onerror="this.onerror=null; this.src='data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22100%22%20height%3D%22100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20fill%3D%22%23e2e8f0%22%2F%3E%3C%2Fsvg%3E'" />
+                <h5>Yensi Elizabeth Valladares Ventura</h5>
+                <span class="team-role">Arquitecta de Base de Datos</span>
+            </div>
+            <div class="team-member animate-slide-up animate-delay-2">
+                <img src="img/Carranza.jpg" class="team-img" onerror="this.onerror=null; this.src='data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22100%22%20height%3D%22100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20fill%3D%22%23e2e8f0%22%2F%3E%3C%2Fsvg%3E'" />
+                <h5>Bryan Isaac Carranza Amaya</h5>
+                <span class="team-role">Gestor de APIs y Backend</span>
+            </div>
+            <div class="team-member animate-slide-up animate-delay-3">
+                <img src="img/Nefta.jpg" class="team-img" onerror="this.onerror=null; this.src='data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22100%22%20height%3D%22100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20fill%3D%22%23e2e8f0%22%2F%3E%3C%2Fsvg%3E'" />
+                <h5>Jeremías Neftaly Fuentes Mendez</h5>
+                <span class="team-role">Gestor de Dominios Web</span>
+            </div>
+            <div class="team-member animate-slide-up animate-delay-1">
+                <img src="img/Adaly.jpg" class="team-img" onerror="this.onerror=null; this.src='data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22100%22%20height%3D%22100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20fill%3D%22%23e2e8f0%22%2F%3E%3C%2Fsvg%3E'" />
+                <h5>Brayan Adaly Campos Martinez</h5>
+                <span class="team-role">Desarrolladora Frontend</span>
+            </div>
+            <div class="team-member animate-slide-up animate-delay-2">
+                <img src="img/Omar.jpg" class="team-img" onerror="this.onerror=null; this.src='data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22100%22%20height%3D%22100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20fill%3D%22%23e2e8f0%22%2F%3E%3C%2Fsvg%3E'" />
+                <h5>Omar David Ventura Cruz</h5>
+                <span class="team-role">Desarrollador Backend</span>
+            </div>
+            <div class="team-member animate-slide-up animate-delay-3">
+                <img src="img/Toño.jpg" class="team-img" onerror="this.onerror=null; this.src='data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22100%22%20height%3D%22100%22%3E%3Crect%20width%3D%22100%22%20height%3D%22100%22%20fill%3D%22%23e2e8f0%22%2F%3E%3C%2Fsvg%3E'" />
+                <h5>Kevin Antonio Castro Araujo</h5>
+                <span class="team-role">Integrador Full Stack</span>
+            </div>
+        </div>
+    </section>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/database.js"></script>
+    <script src="js/layout.js"></script>
+    <script>
+        async function initAbout() {
+            await renderNavbar('');
+        }
+        document.addEventListener('DOMContentLoaded', initAbout);
+    </script>
+</body>
+</html>

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalle de Cultivo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/modern_agro.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+</head>
+<body class="page-body">
+    <div id="navbar-container"></div>
+
+    <div class="container mt-4 animate-slide-up">
+        <div class="d-flex align-items-center mb-4 gap-3">
+            <span class="icon-agro display-5">🌾</span>
+            <h1 class="dashboard-title m-0">Detalle de Cultivo</h1>
+        </div>
+        
+        <div class="detail-card mb-4 animate-slide-up animate-delay-1" id="crop-info">
+            <!-- Info Injected via JS -->
+        </div>
+
+        <div id="weather-section" class="row mb-4 justify-content-center animate-slide-up animate-delay-2" style="display:none;">
+            <!-- Weather Injected via JS -->
+        </div>
+
+        <div class="ai-recommendation mb-4 animate-slide-up animate-delay-3">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="fs-4">🤖</span>
+                <h5 class="m-0">Recomendación IA (Simulada)</h5>
+            </div>
+            <p id="ai-recommendation">Analizando datos del cultivo...</p>
+        </div>
+
+        <section class="mb-5 animate-slide-up animate-delay-3">
+            <div class="detail-card">
+                <h4 class="mb-4">🗺️ Mapa meteorológico</h4>
+                <div id="weather-map" class="map-container"></div>
+            </div>
+        </section>    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/database.js"></script>
+    <script src="js/layout.js"></script>
+
+    <script>
+        let crop;
+
+        async function initCropDetail() {
+            await AuthObj.requireAuth();
+            renderNavbar('');
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const cropId = urlParams.get('id');
+            const currentUser = await AuthObj.getCurrentUser();
+            const allCrops = await window.DB.getAllCrops();
+            crop = allCrops.find(c => c.id == cropId);
+
+            if (!crop || (crop.user_id !== currentUser.id && !currentUser.is_superuser)) {
+                window.location.href = 'dashboard.html';
+                return;
+            }
+
+            document.getElementById('crop-info').innerHTML = `
+                <div class="detail-header">
+                    <h3 class="m-0">${crop.name}</h3>
+                    <span class="badge bg-success align-self-center">Activo</span>
+                </div>
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="info-label">Descripción</div>
+                        <div class="info-value mb-4">${crop.description}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="info-label">Fecha de siembra</div>
+                        <div class="info-value">${new Date(crop.sowing_date).toLocaleDateString()}</div>
+                    </div>
+                </div>
+                
+                <div class="action-bar mt-2">
+                    <a href="crop_create.html?id=${crop.id}" class="action-btn btn-edit">✏️ Editar</a>
+                    <a href="abono_application.html?id=${crop.id}" class="action-btn btn-agro p-2 text-center text-white" style="background:var(--primary-color);">🧪 Abonos</a>
+                    <button onclick="realDeleteCrop(${crop.id})" class="action-btn btn-danger border-0">🗑️ Eliminar</button>
+                </div>
+            `;
+
+            // Initialize Map & Weather
+            let lat = crop.latitude ? parseFloat(crop.latitude) : 13.7;
+            let lng = crop.longitude ? parseFloat(crop.longitude) : -89.2;
+
+            const map = L.map('weather-map').setView([lat, lng], 10);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+            if (CONFIG.OPENWEATHERMAP_API_KEY) {
+                L.tileLayer(`https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=${CONFIG.OPENWEATHERMAP_API_KEY}`).addTo(map);
+            }
+
+            L.marker([lat, lng]).addTo(map).bindPopup(crop.name);
+
+            // Fetch Real Weather
+            if (CONFIG.OPENWEATHERMAP_API_KEY) {
+                try {
+                    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&units=metric&lang=es&appid=${CONFIG.OPENWEATHERMAP_API_KEY}`;
+                    const res = await fetch(url);
+                    const data = await res.json();
+
+                    document.getElementById('weather-section').style.display = 'flex';
+                    document.getElementById('weather-section').innerHTML = `
+                        <div class="col-md-3 mb-3">
+                            <div class="weather-widget flex-column text-center h-100">
+                                <div class="fs-1 mb-2">🌡️</div>
+                                <div class="info-label">Temperatura</div>
+                                <div class="weather-temp" style="font-size:1.8rem;">${data.main.temp}°C</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="weather-widget flex-column text-center h-100">
+                                <div class="fs-1 mb-2">💧</div>
+                                <div class="info-label">Humedad</div>
+                                <div class="weather-temp" style="font-size:1.8rem;">${data.main.humidity}%</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="weather-widget flex-column text-center h-100">
+                                <div class="fs-1 mb-2">🌧️</div>
+                                <div class="info-label">Lluvia</div>
+                                <div class="weather-temp" style="font-size:1.8rem;">${data.rain ? data.rain['1h'] : 0}<span class="fs-6">mm</span></div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="weather-widget flex-column text-center h-100">
+                                <div class="fs-1 mb-2">💨</div>
+                                <div class="info-label">Viento</div>
+                                <div class="weather-temp" style="font-size:1.8rem;">${data.wind.speed}<span class="fs-6">m/s</span></div>
+                            </div>
+                        </div>
+                    `;
+
+                    // Generate AI Mock Recommendation
+                    if(data.main.temp > 30 && data.rain === undefined) {
+                        document.getElementById('ai-recommendation').innerText = 'Las temperaturas son altas y no hay lluvia. Se recomienda aumentar el riego en las próximas horas.';
+                    } else if (data.rain) {
+                        document.getElementById('ai-recommendation').innerText = 'Hay lluvia registrada. Suspender riego programado para evitar saturamiento de humedad en el suelo.';
+                    } else {
+                        document.getElementById('ai-recommendation').innerText = 'Condiciones climáticas estables. Mantén tu programa de riego habitual.';
+                    }
+
+                } catch(e) {
+                    console.error("Error fetching weather", e);
+                    document.getElementById('ai-recommendation').innerText = 'No se pudo generar recomendación (Error de red).';
+                }
+            } else {
+                 document.getElementById('ai-recommendation').innerText = 'Requiere OPENWEATHERMAP_API_KEY para generar recomendaciones basadas en clima.';
+            }
+        }
+
+        window.realDeleteCrop = async function(id) {
+            if(confirm("¿Estás seguro de que quieres eliminar este cultivo?")) {
+                await window.DB.deleteCrop(id);
+                window.location.href = 'dashboard.html';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', initCropDetail);
+    </script>nes basadas en clima.';
+            }
+        });
+    </script>
+</body>
+</html>

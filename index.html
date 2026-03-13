@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgroSmart - Login</title>
+    <link rel="stylesheet" href="css/modern_agro.css">
+</head>
+<body class="auth-body">
+    <div class="auth-container">
+        
+        <!-- LOGIN VIEW -->
+        <div id="login-view" class="auth-card view-section active">
+            <h1>Iniciar Sesión</h1>
+            <div id="login-error" class="auth-error"></div>
+            <div class="auth-info">Inicia sesión con tu email y contraseña.</div>
+            <form id="login-form">
+                <div class="auth-form-group">
+                    <label for="login-email">Email</label>
+                    <input type="email" id="login-email" required autofocus placeholder="ejemplo@gmail.com">
+                </div>
+                <div class="auth-form-group">
+                    <label for="login-password">Contraseña</label>
+                    <input type="password" id="login-password" required placeholder="Tu contraseña">
+                </div>
+                <button type="submit" class="btn-auth">Iniciar Sesión</button>
+            </form>
+            <div class="auth-footer">
+                ¿No tienes cuenta? <a onclick="switchView('register-view')">Regístrate aquí</a><br>
+                <a onclick="switchView('recover-view')" class="text-muted small">¿Olvidaste tu contraseña?</a>
+            </div>
+        </div>
+
+        <!-- REGISTER VIEW -->
+        <div id="register-view" class="auth-card view-section">
+            <h1>Registro</h1>
+            <div id="register-error" class="auth-error"></div>
+            <div class="auth-info">
+                Ingresa tu email. Te enviaremos un código de verificación para confirmar tu identidad.
+            </div>
+            <form id="register-form">
+                <div class="auth-form-group">
+                    <label for="register-email">Email</label>
+                    <input type="email" id="register-email" required placeholder="ejemplo@gmail.com">
+                </div>
+                <button type="submit" class="btn-auth">Enviar Código</button>
+            </form>
+            <div class="auth-footer">
+                ¿Ya tienes cuenta? <a onclick="switchView('login-view')">Inicia sesión</a>
+            </div>
+        </div>
+
+        <!-- RECOVER VIEW -->
+        <div id="recover-view" class="auth-card view-section">
+            <h1>Recuperar Cuenta</h1>
+            <div id="recover-error" class="auth-error"></div>
+            <div class="auth-info">
+                Ingresa tu email registrado. Te enviaremos un código para restablecer tu contraseña.
+            </div>
+            <form id="recover-form">
+                <div class="auth-form-group">
+                    <label for="recover-email">Email</label>
+                    <input type="email" id="recover-email" required placeholder="ejemplo@gmail.com">
+                </div>
+                <button type="submit" class="btn-auth">Enviar Código de Recuperación</button>
+            </form>
+            <div class="auth-footer">
+                <a onclick="switchView('login-view')">Volver al inicio</a>
+            </div>
+        </div>
+
+        <!-- OTP VIEW -->
+        <div id="otp-view" class="auth-card view-section">
+            <h1>Verificar Correo</h1>
+            <div id="otp-error" class="auth-error"></div>
+            <div id="otp-success" class="auth-success">Código enviado (Simulado: revisa las alertas del navegador)</div>
+            <div class="auth-info">
+                Hemos enviado un código de 6 dígitos al correo: <strong id="display-otp-email"></strong>
+            </div>
+            <form id="otp-form">
+                <div class="auth-form-group">
+                    <label for="otp-code">Código de Verificación</label>
+                    <input type="text" id="otp-code" required placeholder="123456" maxlength="6">
+                </div>
+                <button type="submit" class="btn-auth">Verificar Código</button>
+            </form>
+            <div class="auth-footer">
+                ¿Te equivocaste de correo? <a onclick="switchView('register-view')">Volver al registro</a>
+            </div>
+        </div>
+
+        <!-- PASSWORD CREATE VIEW -->
+        <div id="create-password-view" class="auth-card view-section">
+            <h1>Crear Contraseña</h1>
+            <div id="create-pwd-error" class="auth-error"></div>
+            <div class="auth-info">Crea una contraseña segura para tu nueva cuenta.</div>
+            <form id="create-password-form">
+                <div class="auth-form-group">
+                    <label for="new-password">Contraseña</label>
+                    <input type="password" id="new-password" required placeholder="Mínimo 6 caracteres" minlength="6">
+                </div>
+                <div class="auth-form-group">
+                    <label for="confirm-password">Confirmar Contraseña</label>
+                    <input type="password" id="confirm-password" required placeholder="Mínimo 6 caracteres" minlength="6">
+                </div>
+                <button type="submit" class="btn-auth">Guardar Contraseña</button>
+            </form>
+        </div>
+
+    </div>
+
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- EmailJS SDK -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    
+    <!-- DB and Config -->
+    <script src="js/config.js"></script>
+    <script src="js/database.js"></script>
+    <script src="js/auth.js"></script>
+</body>
+</html>
