@@ -24,6 +24,11 @@
 
         <section class="mt-5 mb-5 animate-slide-up animate-delay-2">
             <h2 class="mb-3">Mapa meteorológico (en tiempo real)</h2>
+            <div class="map-search-wrapper">
+                <input id="map-search-input" type="text" class="form-control map-search-input" placeholder="Buscar ubicación (ciudad, barrio, coordenadas...)" />
+                <button id="map-search-btn" class="btn-primary map-search-btn btn-sm" type="button">Buscar</button>
+            </div>
+            <div id="map-search-results" class="map-search-results"></div>
             <div id="weather-map" class="map-container"></div>
             <p class="text-muted small mt-2" id="weather-note"></p>
         </section>
@@ -35,8 +40,12 @@
     <script src="js/config.js"></script>
     <script src="js/database.js"></script>
     <script src="js/layout.js"></script>
+    <script src="js/map-utils.js"></script>
     
     <script>
+        let map;
+        let searchMarker;
+
         async function initDashboard() {
             // Require Authentication
             await AuthObj.requireAuth();
@@ -80,10 +89,38 @@
             }
 
             // Map Initialization
-            const map = L.map('weather-map').setView([13.6929, -89.2182], 8);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors'
-            }).addTo(map);
+            map = L.map('weather-map', {
+                worldCopyJump: true,
+                maxBounds: [[-90, -180], [90, 180]],
+                maxBoundsViscosity: 0.9
+            }).setView([13.6929, -89.2182], 8);
+
+            // Base layer follows the current theme (light/dark)
+            watchThemeOnMap(map);
+
+            const searchInput = document.getElementById('map-search-input');
+            const searchBtn = document.getElementById('map-search-btn');
+            const resultsContainer = document.getElementById('map-search-results');
+            const noteEl = document.getElementById('weather-note');
+
+            setupMapSearch({
+                map,
+                searchInput,
+                searchBtn,
+                resultsContainer,
+                onStatusMessage: (msg) => {
+                    noteEl.textContent = msg;
+                },
+                onSelectPlace: ({ lat, lon, place }) => {
+                    map.setView([lat, lon], 12);
+                    if (searchMarker) {
+                        searchMarker.setLatLng([lat, lon]);
+                    } else {
+                        searchMarker = L.marker([lat, lon]).addTo(map);
+                    }
+                    searchMarker.bindPopup(place.display_name).openPopup();
+                }
+            });
 
             if (CONFIG.OPENWEATHERMAP_API_KEY) {
                 L.tileLayer(`https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=${CONFIG.OPENWEATHERMAP_API_KEY}`, {

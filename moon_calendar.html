@@ -20,6 +20,11 @@
             <form id="moon-form" class="mb-4">
                 <div class="form-group mb-4">
                     <label class="fw-bold mb-2">1. Selecciona Ubicación en el Mapa</label>
+                    <div class="map-search-wrapper mb-3">
+                        <input id="moon-search-input" type="text" class="form-control map-search-input" placeholder="Buscar ubicación..." />
+                        <button id="moon-search-btn" type="button" class="btn-primary map-search-btn btn-sm">Buscar</button>
+                    </div>
+                    <div id="moon-search-results" class="map-search-results mb-3"></div>
                     <div id="moon-map" style="height: 300px; border-radius: 20px; border: 1px solid var(--border-color); margin-bottom: 20px;"></div>
                     <div class="small text-muted mb-3">📍 Haz clic en el mapa para situar el pin. Coordenadas: <span id="coords-display" class="fw-bold">No seleccionadas</span></div>
                 </div>
@@ -32,7 +37,7 @@
             
             <div id="result-container" class="mt-5" style="display:none;">
                 <div class="moon-display-card text-center p-4 rounded-4 mb-4" style="background: rgba(15, 23, 42, 0.03); border: 1px solid rgba(15, 23, 42, 0.05);">
-                    <div id="moon-icon" style="font-size: 80px; filter: drop-shadow(0 0 20px rgba(14, 165, 233, 0.3));" class="animate-float mb-2"></div>
+                    <div id="moon-icon" style="font-size: 80px; filter: drop-shadow(0 0 20px rgba(47, 133, 90, 0.25));" class="animate-float mb-2"></div>
                     <div class="text-muted small text-uppercase fw-bold letter-spacing-1 mb-1">Fase Actual</div>
                     <div class="fs-3 fw-800" id="moon-phase" style="color: var(--text-main);"></div>
                 </div>
@@ -105,6 +110,7 @@
     <script src="js/config.js"></script>
     <script src="js/database.js"></script>
     <script src="js/layout.js"></script>
+    <script src="js/map-utils.js"></script>
     
     <script>
         async function initMoon() {
@@ -115,13 +121,44 @@
         document.addEventListener('DOMContentLoaded', initMoon);
 
         // Initialize Map
-        const map = L.map('moon-map').setView([13.6929, -89.2182], 4); // Initial view
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
+        const map = L.map('moon-map', {
+            worldCopyJump: true,
+            maxBounds: [[-90, -180], [90, 180]],
+            maxBoundsViscosity: 0.9
+        }).setView([13.6929, -89.2182], 4); // Initial view
+
+        // Base layer adapts to current theme (light/dark)
+        watchThemeOnMap(map);
+
+        const moonSearchInput = document.getElementById('moon-search-input');
+        const moonSearchBtn = document.getElementById('moon-search-btn');
+        const moonSearchResults = document.getElementById('moon-search-results');
 
         let marker = null;
         let selectedCoords = null;
+
+        setupMapSearch({
+            map,
+            searchInput: moonSearchInput,
+            searchBtn: moonSearchBtn,
+            resultsContainer: moonSearchResults,
+            onStatusMessage: (msg) => {
+                // We can show a subtle status (optional) in the coords display area
+                document.getElementById('coords-display').innerText = msg;
+            },
+            onSelectPlace: ({ lat, lon, place }) => {
+                if (marker) {
+                    marker.setLatLng([lat, lon]);
+                } else {
+                    marker = L.marker([lat, lon]).addTo(map);
+                }
+                map.setView([lat, lon], 10);
+                selectedCoords = { lat, lng: lon };
+                document.getElementById('coords-display').innerText = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+                document.getElementById('btn-analyze').disabled = false;
+                marker.bindPopup(place.display_name).openPopup();
+            }
+        });
 
         map.on('click', (e) => {
             const { lat, lng } = e.latlng;

@@ -34,9 +34,14 @@
                 <input type="hidden" id="latitude">
                 <input type="hidden" id="longitude">
 
-                <div class="card bg-white mt-4 mb-4 border-0">
+                <div class="card themed-card mt-4 mb-4 border-0">
                     <div class="card-body p-0">
-                        <h5 class="mb-3">Ubicación <span class="text-muted fw-normal fs-6">(haz clic en el mapa)</span></h5>
+                        <h5 class="mb-3">Ubicación <span class="text-muted fw-normal fs-6">(haz clic en el mapa o busca una ubicación)</span></h5>
+                        <div class="map-search-wrapper">
+                            <input id="crop-search-input" type="text" class="form-control map-search-input" placeholder="Buscar ubicación..." />
+                            <button id="crop-search-btn" type="button" class="btn-primary map-search-btn btn-sm">Buscar</button>
+                        </div>
+                        <div id="crop-search-results" class="map-search-results"></div>
                         <div id="crop-map" class="map-container"></div>
                         <div id="climate-feedback" class="mt-3" style="display:none;"></div>
                     </div>
@@ -55,6 +60,7 @@
     <script src="js/config.js"></script>
     <script src="js/database.js"></script>
     <script src="js/layout.js"></script>
+    <script src="js/map-utils.js"></script>
     
     <script>
         let editMode = false;
@@ -96,8 +102,51 @@
                 center = [parseFloat(crop.latitude), parseFloat(crop.longitude)];
             }
 
-            const map = L.map('crop-map').setView(center, 10);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            const map = L.map('crop-map', {
+                worldCopyJump: true,
+                maxBounds: [[-90, -180], [90, 180]],
+                maxBoundsViscosity: 0.9
+            }).setView(center, 10);
+
+            // Base layer adapts to the current theme (light/dark)
+            watchThemeOnMap(map);
+
+            const searchInput = document.getElementById('crop-search-input');
+            const searchBtn = document.getElementById('crop-search-btn');
+            const resultsContainer = document.getElementById('crop-search-results');
+
+            async function setLocation(lat, lng, label) {
+                if (mapMarker) {
+                    mapMarker.setLatLng([lat, lng]);
+                } else {
+                    mapMarker = L.marker([lat, lng]).addTo(map);
+                }
+
+                map.setView([lat, lng], 12);
+                document.getElementById('latitude').value = lat.toFixed(6);
+                document.getElementById('longitude').value = lng.toFixed(6);
+
+                if (label) {
+                    mapMarker.bindPopup(label).openPopup();
+                }
+
+                await updateClimateFeedback(lat, lng);
+            }
+
+            setupMapSearch({
+                map,
+                searchInput,
+                searchBtn,
+                resultsContainer,
+                onStatusMessage: (msg) => {
+                    const feedback = document.getElementById('climate-feedback');
+                    feedback.style.display = 'block';
+                    feedback.innerHTML = msg;
+                },
+                onSelectPlace: async ({ lat, lon, place }) => {
+                    await setLocation(lat, lon, place.display_name);
+                }
+            });
 
             if (editMode && crop.latitude) {
                 mapMarker = L.marker(center).addTo(map);
@@ -107,17 +156,7 @@
             map.on('click', async (e) => {
                 const lat = e.latlng.lat;
                 const lng = e.latlng.lng;
-
-                if (mapMarker) {
-                    mapMarker.setLatLng([lat, lng]);
-                } else {
-                    mapMarker = L.marker([lat, lng]).addTo(map);
-                }
-
-                document.getElementById('latitude').value = lat.toFixed(6);
-                document.getElementById('longitude').value = lng.toFixed(6);
-
-                await updateClimateFeedback(lat, lng);
+                await setLocation(lat, lng);
             });
         }
 
