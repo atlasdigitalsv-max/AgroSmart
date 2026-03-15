@@ -8,7 +8,14 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/modern_agro.css">
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.108/Build/Cesium/Cesium.js"></script>
-    <link href="https://cesium.com/downloads/cesiumjs/releases/1.108/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <link id="cesium-css" rel="stylesheet" href="">
+    <script>
+        // Dynamically load Cesium CSS and Hero Background only if online
+        if (navigator.onLine) {
+            document.getElementById('cesium-css').href = "https://cesium.com/downloads/cesiumjs/releases/1.108/Build/Cesium/Widgets/widgets.css";
+            document.documentElement.style.setProperty('--dynamic-hero-bg', "url('https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=2532&auto=format&fit=crop')");
+        }
+    </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
@@ -224,11 +231,43 @@
                 const orgMap = {};
                 allOrgs.forEach(o => orgMap[o.id] = o.name);
 
-                const satelliteProvider = await Cesium.ArcGisMapServerImageryProvider.fromUrl(
-                    'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',
-                    { maximumLevel: 19 }
-                );
-                if (satelliteProvider?.errorEvent) satelliteProvider.errorEvent.addEventListener(e => e.retry = false);
+                // Utility to check if a service is actually reachable before letting Cesium flood the console
+                async function checkService(url) {
+                    if (!navigator.onLine) return false;
+                    try {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 1000);
+                        await fetch(url, { mode: 'no-cors', signal: controller.signal });
+                        clearTimeout(timeoutId);
+                        return true;
+                    } catch (e) {
+                        return false;
+                    }
+                }
+
+                let satelliteProvider = null;
+                let satelliteLayer = null;
+                const satelliteUrl = 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer';
+                
+                if (await checkService(satelliteUrl)) {
+                    try {
+                        satelliteProvider = await Cesium.ArcGisMapServerImageryProvider.fromUrl(
+                            satelliteUrl,
+                            { maximumLevel: 19 }
+                        );
+                        if (satelliteProvider?.errorEvent) {
+                            satelliteProvider.errorEvent.addEventListener(e => {
+                                e.retry = false;
+                                if (satelliteLayer) {
+                                    viewer.imageryLayers.remove(satelliteLayer);
+                                    satelliteLayer = null;
+                                }
+                            });
+                        }
+                    } catch (err) {
+                        // Silenced
+                    }
+                }
 
                 viewer = new Cesium.Viewer('weather-map', {
                     animation: false,
@@ -248,8 +287,27 @@
                     useDefaultRenderLoop: true,
                     terrainShadows: Cesium.ShadowMode.ENABLED,
                     msaaSamples: 4,
-                    baseLayer: Cesium.ImageryLayer.fromProviderAsync(Promise.resolve(satelliteProvider))
+                    baseLayer: satelliteProvider ? (satelliteLayer = Cesium.ImageryLayer.fromProviderAsync(Promise.resolve(satelliteProvider))) : 
+                               (navigator.onLine ? undefined : new Cesium.ImageryLayer(new Cesium.GridImageryProvider()))
                 });
+
+                // Disable Ion completely when offline to prevent asset fetch errors
+                if (!navigator.onLine) {
+                    viewer.scene.globe.baseColor = Cesium.Color.BLACK;
+                }
+
+                if (!satelliteProvider) {
+                    console.warn("Iniciando mapa sin capa satelital (Modo Offline)");
+                    const offlineNote = document.createElement('div');
+                    offlineNote.className = 'alert alert-warning m-2 py-1 small animate-pulse';
+                    offlineNote.style.position = 'absolute';
+                    offlineNote.style.top = '10px';
+                    offlineNote.style.right = '10px';
+                    offlineNote.style.zIndex = '1000';
+                    offlineNote.style.fontSize = '12px';
+                    offlineNote.innerHTML = '<i class="bi bi-wifi-off me-1"></i> Modo Offline: Mapa limitado';
+                    document.getElementById('weather-map').appendChild(offlineNote);
+                }
 
                 window.viewer = viewer;
                 // Set explicit pointer events just in case CSS missed it
@@ -270,34 +328,69 @@
                 viewer.scene.screenSpaceCameraController.enableTilt = true;
                 viewer.scene.screenSpaceCameraController.enableLook = true;
 
-                const labelsProvider = await Cesium.ArcGisMapServerImageryProvider.fromUrl(
-                    'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer',
-                    { maximumLevel: 19 }
-                );
-                if (labelsProvider?.errorEvent) labelsProvider.errorEvent.addEventListener(e => e.retry = false);
-                viewer.imageryLayers.addImageryProvider(labelsProvider);
+                if (navigator.onLine) {
+                    try {
+                        const labelsProvider = await Cesium.ArcGisMapServerImageryProvider.fromUrl(
+                            'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer',
+                            { maximumLevel: 19 }
+                        );
+                        if (labelsProvider?.errorEvent) {
+                            labelsProvider.errorEvent.addEventListener(e => {
+                                e.retry = false;
+                                console.warn("Labels layer failed. Removing.");
+                                viewer.imageryLayers.remove(lbLayer);
+                            });
+                        }
+                        const lbLayer = viewer.imageryLayers.addImageryProvider(labelsProvider);
 
-                // Add Transportation Layer for visible roads
-                const roadsProvider = await Cesium.ArcGisMapServerImageryProvider.fromUrl(
-                    'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer',
-                    { maximumLevel: 19 }
-                );
-                if (roadsProvider?.errorEvent) roadsProvider.errorEvent.addEventListener(e => e.retry = false);
-                viewer.imageryLayers.addImageryProvider(roadsProvider);
+                        const roadsProvider = await Cesium.ArcGisMapServerImageryProvider.fromUrl(
+                            'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer',
+                            { maximumLevel: 19 }
+                        );
+                        if (roadsProvider?.errorEvent) {
+                            roadsProvider.errorEvent.addEventListener(e => {
+                                e.retry = false;
+                                viewer.imageryLayers.remove(rdLayer);
+                            });
+                        }
+                        const rdLayer = viewer.imageryLayers.addImageryProvider(roadsProvider);
+                    } catch (e) {
+                        console.warn("Labels/Roads providers unreachable:", e.message);
+                    }
+                }
 
-                if (CONFIG.OPENWEATHERMAP_API_KEY) {
-                    const cloudsProvider = new Cesium.UrlTemplateImageryProvider({
-                        url: `https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=${CONFIG.OPENWEATHERMAP_API_KEY}`,
-                        credit: 'Weather data © OpenWeatherMap',
-                        maximumLevel: 10
-                    });
-                    const cloudsLayer = viewer.imageryLayers.addImageryProvider(cloudsProvider);
-                    cloudsLayer.alpha = 0.8;
+                if (CONFIG.OPENWEATHERMAP_API_KEY && navigator.onLine) {
+                    try {
+                        const cloudsProvider = new Cesium.UrlTemplateImageryProvider({
+                            url: `https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=${CONFIG.OPENWEATHERMAP_API_KEY}`,
+                            credit: 'Weather data © OpenWeatherMap',
+                            maximumLevel: 10
+                        });
+                        
+                        let cloudsLayer = viewer.imageryLayers.addImageryProvider(cloudsProvider);
+                        cloudsLayer.alpha = 0.8;
 
-                    viewer.camera.moveEnd.addEventListener(() => {
-                        const height = viewer.camera.positionCartographic.height;
-                        cloudsLayer.show = height > 50000;
-                    });
+                        if (cloudsProvider.errorEvent) {
+                            cloudsProvider.errorEvent.addEventListener(e => {
+                                e.retry = false;
+                                if (cloudsLayer) {
+                                    viewer.imageryLayers.remove(cloudsLayer);
+                                    cloudsLayer = null;
+                                }
+                            });
+                        }
+
+                        viewer.camera.moveEnd.addEventListener(() => {
+                            if (cloudsLayer) {
+                                const height = viewer.camera.positionCartographic.height;
+                                cloudsLayer.show = height > 50000;
+                            }
+                        });
+                    } catch(e) {
+                        console.warn("Climas/Nubes no disponibles:", e.message);
+                    }
+                } else if (!navigator.onLine) {
+                    document.getElementById('weather-note').innerText = 'Nota: Capas de clima no disponibles en modo offline.';
                 } else {
                     document.getElementById('weather-note').innerText = 'Nota: La capa de nube/clima requiere una API KEY de OpenWeatherMap en config.js';
                 }
@@ -358,8 +451,10 @@
                     const isCoop = !!c.org_id;
                     const coopName = isCoop ? (orgMap[c.org_id] || "Cooperativa") : null;
                     
+                    const leafSvg = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="'+(isCoop ? '%23FFD700' : '%2310b981')+'"><path d="M17,8C8,10 5.9,16.17 3.82,21.34L5.71,22L6.66,19.7C7.14,19.87 7.64,20 8.17,20C14.34,20 21,14.54 21,8V1H10C4.27,1 1,4.27 1,10C1,12.06 1.47,13.84 2.24,15.5L4.08,13.1C3.4,11.9 3,10.6 3,10C3,6.13 5.43,3 9,3C12,3 15.17,4.5 17,8Z"/></svg>');
+                    
                     const sharedBillboard = {
-                        image: isCoop ? 'https://img.icons8.com/ios-filled/50/FFD700/leaf.png' : 'https://img.icons8.com/ios-filled/50/10b981/leaf.png',
+                        image: leafSvg,
                         width: isCoop ? 32 : 24,
                         height: isCoop ? 32 : 24,
                         scaleByDistance: nearFarScalar,
@@ -413,7 +508,7 @@
                             position: Cesium.Cartesian3.fromDegrees(c.longitude, c.latitude),
                             billboard: {
                                 ...sharedBillboard,
-                                image: isCoop ? 'https://img.icons8.com/ios-filled/50/FFD700/marker.png' : 'https://img.icons8.com/ios-filled/50/ef4444/marker.png'
+                                image: 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="'+(isCoop ? '%23FFD700' : '%23ef4444')+'"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>')
                             },
                             label: {
                                 text: c.name,

@@ -13,7 +13,6 @@ class Database {
         }
         if (typeof supabase !== 'undefined' && config.SUPABASE_URL && config.SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
             this.supabase = supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
-            console.log("Supabase Client Initialized");
         }
         // No initDB needed for Supabase as it's remote, but keep localStorage for local dev/fallback
         this.initLocalDB();
@@ -27,12 +26,12 @@ class Database {
             console.log("🌟 Medianoche detectada: Ejecutando borrado total de historiales de chat para liberar caché.");
             if (this.supabase) {
                 try {
-                    // Requires the SQL table to not have hard blocks on delete without where if possible, 
-                    // or simulate a neq trick to delete all.
-                    const { error } = await this.supabase.from('messages').delete().neq('id', 0);
-                    if (error) console.error("Error limpiando chats en Supabase:", error);
+                    if (navigator.onLine) {
+                        const { error } = await this.supabase.from('messages').delete().neq('id', 0);
+                        if (error) console.warn("Error limpiando chats en Supabase:", error);
+                    }
                 } catch(e) {
-                    console.warn("Fallo borrado de Supabase:", e);
+                    console.warn("Fallo borrado de Supabase (posiblemente offline):", e.message);
                 }
             } 
             
@@ -78,7 +77,7 @@ class Database {
 
     // --- Users ---
     async getUserByEmail(email) {
-        if (this.supabase) {
+        if (this.supabase && navigator.onLine) {
             try {
                 const { data, error } = await this.supabase.from('users').select('*').eq('email', email).maybeSingle();
                 if (!error && data) return data;
@@ -92,16 +91,16 @@ class Database {
 
     async getUserById(id) {
         if (!id) return null;
-        if (this.supabase) {
+        if (this.supabase && navigator.onLine) {
             try {
                 const { data, error } = await this.supabase.from('users').select('*').eq('id', id).maybeSingle();
                 if (error) {
-                    console.error("[Supabase] Error en getUserById:", error);
-                    throw error; // Forzamos el catch para el fallback a LocalDB
+                    console.warn("[Supabase] Error en getUserById:", error.message);
+                    throw error; 
                 }
                 if (data) return data;
             } catch(e) {
-                console.warn("[Offline/Error] Reintentando búsqueda en base local para usuario:", id);
+                // Silenced offline fallback log
             }
         }
         
@@ -356,10 +355,11 @@ class Database {
     }
 
     async getCountries() {
-        if (this.supabase) {
-            const { data, error } = await this.supabase.from('countries').select('*').neq('code', 'CORP');
-            if (error) console.error(error);
-            return data || [];
+        if (this.supabase && navigator.onLine) {
+            try {
+                const { data, error } = await this.supabase.from('countries').select('*').neq('code', 'CORP');
+                if (!error && data) return data;
+            } catch(e) { /* Silenced */ }
         }
         return [
             { id: 1, name: 'El Salvador', code: 'SV', plan: 'esmeralda' },
@@ -454,7 +454,7 @@ class Database {
     }
 
     async getAllCrops(currentUser = null) {
-        if (this.supabase) {
+        if (this.supabase && navigator.onLine) {
             let query = this.supabase.from('crops').select('*');
             
             if (currentUser) {
@@ -482,11 +482,9 @@ class Database {
 
             try {
                 const { data, error } = await query;
-                if (error) throw error;
-                return data || [];
+                if (!error && data) return data;
             } catch (err) {
-                console.warn("[Offline/Error] Fallback to local DB for getAllCrops", err);
-                // Fallthrough to local DB
+                // Silenced
             }
         }
 
@@ -610,7 +608,7 @@ class Database {
 
     // --- Chat Messages ---
     async getMessages(userId1, userId2) {
-        if (this.supabase) {
+        if (this.supabase && navigator.onLine) {
             const { data, error } = await this.supabase
                 .from('messages')
                 .select('*')
@@ -657,7 +655,7 @@ class Database {
     }
 
     async getUserGroups(userId) {
-        if (this.supabase) {
+        if (this.supabase && navigator.onLine) {
             // Join query via Supabase relations
             const { data, error } = await this.supabase
                 .from('chat_group_members')
@@ -842,6 +840,7 @@ window.AuthObj = {
     },
 
     refreshUserInBackground: async function(id) {
+        if (!navigator.onLine) return; // Prevent background network noise
         try {
             const user = await window.DB.getUserById(id);
             if (user) {

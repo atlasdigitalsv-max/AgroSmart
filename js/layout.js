@@ -100,7 +100,6 @@ async function renderNavbar(activePage) {
     // STRICT LOCAL CHECK: Avoid fetch entirely on file:// to prevent CORS errors in console
     if (isLocalFile) {
         container.innerHTML = NAVBAR_TEMPLATE;
-        console.info('AgroSmart: Cargando UI interna (Protocolo local file://)');
     } else {
         try {
             let response;
@@ -147,7 +146,6 @@ async function renderNavbar(activePage) {
     protectedItems.forEach(item => item.style.display = 'none');
 
     if (user) {
-        console.log(`AgroSmart UI: Usuario detectado (${user.role}). Actualizando visibilidad...`);
         // Show for logged in users
         protectedItems.forEach(item => {
             item.style.setProperty('display', 'flex', 'important');
@@ -155,7 +153,6 @@ async function renderNavbar(activePage) {
         
         // Admin Visibility
         if (adminLink) {
-            console.log(`AgroSmart UI: isAdmin=${isAdmin}`);
             adminLink.style.setProperty('display', isAdmin ? 'flex' : 'none', 'important');
         }
 
@@ -283,6 +280,7 @@ async function renderNavbar(activePage) {
 // function ensureThemeFab() REMOVED
 
 async function updateNotificationBadge() {
+    if (!navigator.onLine) return;
     const badge = document.getElementById('notificationBadge');
     if(!badge) return;
     if (typeof AuthObj === 'undefined') return;
@@ -325,6 +323,7 @@ setInterval(updateNotificationBadge, 30000);
 // Live Instant-Ban Monitor Loop
 // If An Admin drops the ban hammer mid-session, this will execute the logout
 async function monitorSessionValidity() {
+    if (!navigator.onLine) return;
     const userId = sessionStorage.getItem('current_user_id');
     if (!userId || window.location.pathname.includes('index.html') || window.location.pathname === '/' || window.location.pathname === '') return;
     

@@ -327,10 +327,13 @@
                     const country = countries.find(c => String(c.id) === String(user.country_id));
                     const countryPlan = country ? (country.plan || 'none') : 'none';
                     
-                    const hasActiveCountryPlan = countryPlan !== 'none';
+                    const userPlan = (user.plan && user.plan !== 'none') ? user.plan : 'none';
+                    const activePlan = (userPlan !== 'none') ? userPlan : countryPlan;
+                    
+                    const hasActivePlan = activePlan !== 'none';
                     const isGlobalAdmin = user.role === 'global_owner';
 
-                    if (hasActiveCountryPlan || isGlobalAdmin) {
+                    if (hasActivePlan || isGlobalAdmin) {
                         console.log("[Services] Mostrando estado de plan activo.");
                         adminState.style.display = 'block';
                         pricingSection.style.display = 'none';
@@ -340,18 +343,21 @@
                         const iconContainer = document.getElementById('plan-icon-container');
                         const statusTitle = document.getElementById('plan-status-title');
 
-                        const planName = countryPlan.toUpperCase();
+                        const planName = activePlan.toUpperCase();
                         planDisplay.innerText = `PLAN ${planName}`;
                         
-                        if (countryPlan === 'esmeralda' || isGlobalAdmin) {
+                        if (activePlan === 'esmeralda' || isGlobalAdmin) {
                             iconContainer.innerHTML = '💎';
                             planDisplay.classList.add('text-success');
-                        } else if (countryPlan === 'diamante') {
+                        } else if (activePlan === 'diamante') {
                             iconContainer.innerHTML = '✨';
                             planDisplay.classList.add('text-primary');
-                        } else if (countryPlan === 'bronce') {
+                        } else if (activePlan === 'bronce') {
                             iconContainer.innerHTML = '🏆';
                             planDisplay.style.color = '#cd7f32';
+                        } else {
+                            iconContainer.innerHTML = '🛡️';
+                            planDisplay.style.color = '#6c757d';
                         }
 
                         const joinDate = new Date(user.date_joined).toLocaleDateString('es-ES', { 
@@ -363,11 +369,18 @@
                             statusTitle.innerText = "Acceso de Creador Global";
                             planDisplay.innerText = "CORPORATIVO (FULL)";
                         } else {
-                            statusTitle.innerText = `Plan Activo en ${country ? country.name : 'tu Región'}`;
+                            const roleMap = {
+                                'ministry_admin': 'Admin de Ministerio',
+                                'org_admin': 'Admin de Organización',
+                                'farmer': 'Agricultor'
+                            };
+                            const roleName = roleMap[user.role] || 'Usuario';
+                            statusTitle.innerText = `Acceso de ${roleName}`;
+                            document.getElementById('plan-status-desc').innerText = `Tu cuenta disfruta de los beneficios del plan contratado para ${country ? country.name : 'tu Región'}.`;
                         }
 
                     } else {
-                        console.log("[Services] No hay plan de país, mostrando catálogo.");
+                        console.log("[Services] No hay plan de país ni usuario, mostrando catálogo.");
                         adminState.style.display = 'none';
                         pricingSection.style.display = 'block';
                     }
