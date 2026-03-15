@@ -19,7 +19,7 @@ const NAVBAR_TEMPLATE = `
     <div class="navbar-header-logo">
         <a class="navbar-brand text-decoration-none d-flex align-items-center gap-2" href="dashboard.html">
             <img src="img/logo.png" alt="AgroSmart Logo" style="height: 35px; width: auto; object-fit: contain;">
-            <span class="d-none d-md-inline" style="color: var(--text-main); font-weight: 800;">AgroSmart</span>
+            <span style="color: var(--text-main); font-weight: 800;">AgroSmart</span>
         </a>
     </div>
     <div id="navbar-menu" class="navbar-menu">
@@ -183,11 +183,11 @@ async function renderNavbar(activePage) {
         authContainer.innerHTML = user ? `
             <a href="#" onclick="AuthObj.logout()" class="btn-secondary nav-logout-btn text-nowrap d-flex align-items-center justify-content-start" title="Cerrar sesión">
                 <i class="bi bi-box-arrow-right me-2"></i>
-                <span class="d-none d-md-inline">Salir</span>
+                <span>Salir</span>
             </a>` : `
             <a href="index.html" class="btn-secondary text-nowrap d-flex align-items-center justify-content-start">
                 <i class="bi bi-box-arrow-in-right me-2"></i>
-                <span class="d-none d-md-inline">Entrar</span>
+                <span>Entrar</span>
             </a>`;
     }
 
