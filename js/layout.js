@@ -1,17 +1,16 @@
 function getSavedTheme() {
-    return localStorage.getItem('agrosmart-theme') || 'light';
+    return 'light';
 }
 
 function applyTheme(theme) {
     const root = document.documentElement;
-    root.setAttribute('data-theme', theme);
-    localStorage.setItem('agrosmart-theme', theme);
+    root.setAttribute('data-theme', 'light');
+    localStorage.setItem('agrosmart-theme', 'light');
 }
 
 function toggleTheme() {
-    // Hidden as requested, but keeping logic for future internal use if needed
-    const current = getSavedTheme();
-    applyTheme(current === 'dark' ? 'light' : 'dark');
+    // Disabled: system forced to light mode
+    applyTheme('light');
 }
 
 const NAVBAR_TEMPLATE = `
