@@ -274,6 +274,11 @@
                         if (newRole) {
                             try {
                                 await window.DB.setAdminStatus(viewUserId, newRole !== 'farmer', newRole);
+                                
+                                if (newRole === 'global_owner') {
+                                    await window.DB.updateUserAffiliation(viewUserId, 3, null);
+                                }
+
                                 window.showSuccessModal('Rol Actualizado', `El usuario ahora tiene el rango de: ${newRole}.`);
                                 setTimeout(() => window.location.reload(), 1500);
                             } catch (err) {

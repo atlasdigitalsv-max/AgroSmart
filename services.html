@@ -56,8 +56,8 @@
         <!-- Solutions Grid & Pricing -->
         <div id="pricing-section-container" style="display: none;" class="animate-slide-up">
             <div class="text-center mb-5">
-                <h2 class="fw-bold">Elige el Plan para tu Equipo</h2>
-                <p class="text-muted">Desbloquea el poder estadístico para corporaciones, cooperativas o países completos.</p>
+                <h2 class="fw-bold fs-1">¿Aún no tienes un plan?</h2>
+                <p class="text-muted lead">Potencia tu gestión agrícola con nuestras soluciones corporativas para países y cooperativas.</p>
             </div>
 
             <!-- Precios (Tarjetas) -->
@@ -191,6 +191,17 @@
             </div>
         </div>
 
+        <!-- Contact Section -->
+        <section class="mt-5 pt-4 text-center animate-slide-up">
+            <div class="p-5 rounded-4 shadow-sm border-0" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+                <h3 class="fw-bold mb-3">¿Necesitas una solución personalizada?</h3>
+                <p class="text-muted mb-4 mx-auto" style="max-width: 600px;">Nuestro equipo de expertos en AgroSmart Corporation está listo para ayudarte a digitalizar tu sector agrícola a escala nacional.</p>
+                <button onclick="contactCorporation()" class="btn btn-dark px-5 py-3 rounded-pill fw-bold shadow-sm">
+                    <i class="bi bi-chat-dots me-2"></i>Contactar a AgroSmart Corporation
+                </button>
+            </div>
+        </section>
+
         <!-- Global Strategy Stats -->
         <section class="service-card-v2 animate-slide-up animate-delay-3">
             <div class="row align-items-center text-center text-md-start">
@@ -246,12 +257,21 @@
     <script>
         // Make it globally available for onclick handlers in HTML
         window.handleServiceClick = async function(planType) {
+            const planNameFormated = planType.charAt(0).toUpperCase() + planType.slice(1);
+            const msg = `👋 ¡Hola! Me interesa adquirir información detallada sobre el **Plan ${planNameFormated}**. ¿Cuáles son los pasos a seguir?`;
+            await initiateContact(msg);
+        };
+
+        window.contactCorporation = async function() {
+            const msg = `👋 ¡Hola! Me gustaría conversar con un Creador Global de AgroSmart Corporation para conocer soluciones a medida.`;
+            await initiateContact(msg);
+        };
+
+        async function initiateContact(initialMessage) {
             const user = await window.AuthObj.getCurrentUser();
             
-            // Si el sistema detectó que no hay usuario real (guest o stub borrado)
             if (!user || user.id === 'guest' || user._isStub) {
-                // Notificación rápida y redirección directa
-                const res = await Swal.fire({
+                await Swal.fire({
                     title: 'Inicia Sesión',
                     text: 'Debes tener una cuenta para contactar a los Creadores Globales.',
                     icon: 'info',
@@ -265,7 +285,7 @@
 
             try {
                 Swal.fire({
-                    title: 'Conectando con Creador Global...',
+                    title: 'Conectando...',
                     text: 'Te estamos vinculando con el equipo de soporte.',
                     allowOutsideClick: false,
                     didOpen: () => Swal.showLoading()
@@ -285,9 +305,6 @@
                     throw new Error('Lo sentimos, los Creadores Globales no están disponibles en este momento.');
                 }
 
-                const planNameFormated = planType.charAt(0).toUpperCase() + planType.slice(1);
-                const initialMessage = `👋 ¡Hola! Me interesa adquirir información detallada sobre el **Plan ${planNameFormated}**. ¿Cuáles son los pasos a seguir?`;
-
                 // Enviar mensaje automático e ir al chat
                 await window.DB.sendMessage({
                     sender_id: user.id,
@@ -300,99 +317,20 @@
             } catch(e) {
                 Swal.fire('Atención', e.message || 'Error de conexión. Intente más tarde.', 'warning');
             }
-        };
+        }
 
         document.addEventListener('DOMContentLoaded', async () => {
             if (window.initLayout) window.initLayout();
 
             const loadingState = document.getElementById('service-loading-state');
             const pricingSection = document.getElementById('pricing-section-container');
-            const adminState = document.getElementById('admin-already-active-state');
 
             try {
                 await new Promise(resolve => setTimeout(resolve, 300));
-                const user = await window.AuthObj.getCurrentUser();
                 loadingState.style.display = 'none';
-
-                console.log("[Services] Verificando acceso para:", user?.email, "Rol:", user?.role, "Plan:", user?.plan);
-
-                // OCULTAR SI: Es Admin (Global, Ministerio, Org) O si ya tiene un plan activo distinto de 'none'
-                const role = String(user?.role || '').toLowerCase();
-                const hasAdministrativeRole = ['global_owner', 'ministry_admin', 'org_admin'].includes(role);
-                const hasActivePlan = user && user.plan && user.plan !== 'none';
-                
-                // Un usuario es autenticado si tiene un ID (incluso si es un stub temporal)
-                const isAuthenticated = user && user.id && user.id !== 'guest';
-
-                if (isAuthenticated) {
-                    const countries = await window.DB.getCountries();
-                    const country = countries.find(c => String(c.id) === String(user.country_id));
-                    const countryPlan = country ? (country.plan || 'none') : 'none';
-                    
-                    const userPlan = (user.plan && user.plan !== 'none') ? user.plan : 'none';
-                    const activePlan = (userPlan !== 'none') ? userPlan : countryPlan;
-                    
-                    const hasActivePlan = activePlan !== 'none';
-                    const isGlobalAdmin = user.role === 'global_owner';
-
-                    if (hasActivePlan || isGlobalAdmin) {
-                        console.log("[Services] Mostrando estado de plan activo.");
-                        adminState.style.display = 'block';
-                        pricingSection.style.display = 'none';
-
-                        const planDisplay = document.getElementById('display-plan-name');
-                        const dateDisplay = document.getElementById('display-join-date');
-                        const iconContainer = document.getElementById('plan-icon-container');
-                        const statusTitle = document.getElementById('plan-status-title');
-
-                        const planName = activePlan.toUpperCase();
-                        planDisplay.innerText = `PLAN ${planName}`;
-                        
-                        if (activePlan === 'esmeralda' || isGlobalAdmin) {
-                            iconContainer.innerHTML = '💎';
-                            planDisplay.classList.add('text-success');
-                        } else if (activePlan === 'diamante') {
-                            iconContainer.innerHTML = '✨';
-                            planDisplay.classList.add('text-primary');
-                        } else if (activePlan === 'bronce') {
-                            iconContainer.innerHTML = '🏆';
-                            planDisplay.style.color = '#cd7f32';
-                        } else {
-                            iconContainer.innerHTML = '🛡️';
-                            planDisplay.style.color = '#6c757d';
-                        }
-
-                        const joinDate = new Date(user.date_joined).toLocaleDateString('es-ES', { 
-                            day: '2-digit', month: 'long', year: 'numeric' 
-                        });
-                        dateDisplay.innerText = joinDate;
-                        
-                        if (isGlobalAdmin) {
-                            statusTitle.innerText = "Acceso de Creador Global";
-                            planDisplay.innerText = "CORPORATIVO (FULL)";
-                        } else {
-                            const roleMap = {
-                                'ministry_admin': 'Admin de Ministerio',
-                                'org_admin': 'Admin de Organización',
-                                'farmer': 'Agricultor'
-                            };
-                            const roleName = roleMap[user.role] || 'Usuario';
-                            statusTitle.innerText = `Acceso de ${roleName}`;
-                            document.getElementById('plan-status-desc').innerText = `Tu cuenta disfruta de los beneficios del plan contratado para ${country ? country.name : 'tu Región'}.`;
-                        }
-
-                    } else {
-                        console.log("[Services] No hay plan de país ni usuario, mostrando catálogo.");
-                        adminState.style.display = 'none';
-                        pricingSection.style.display = 'block';
-                    }
-                } else {
-                    console.log("[Services] Invitado, mostrando planes.");
-                    adminState.style.display = 'none';
-                    pricingSection.style.display = 'block';
-                }
+                pricingSection.style.display = 'block';
             } catch (err) {
-                console.warn("Error verifying session in services:", err);
+                console.warn("Error in services initialization:", err);
                 loadingState.style.display = 'none';
                 pricingSection.style.display = 'block';
             }

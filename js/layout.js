@@ -20,6 +20,7 @@ const NAVBAR_TEMPLATE = `
         <a class="navbar-brand text-decoration-none d-flex align-items-center gap-2" href="dashboard.html">
             <img src="img/logo.png" alt="AgroSmart Logo" style="height: 35px; width: auto; object-fit: contain;">
             <span style="color: var(--text-main); font-weight: 800;">AgroSmart</span>
+            <span id="nav-plan-badge" class="badge rounded-pill ms-2 border-0 py-1 px-2 text-uppercase fw-bold" style="font-size: 9px; letter-spacing: 1px; display: none;"></span>
         </a>
     </div>
     <div id="navbar-menu" class="navbar-menu">
@@ -144,6 +145,26 @@ async function renderNavbar(activePage) {
     if (callsLink) callsLink.style.display = 'none';
     if (planLink) planLink.style.display = 'none';
     protectedItems.forEach(item => item.style.display = 'none');
+
+    // Restore Plan Badge Visibility (Except for Creador/Global Owner as requested)
+    const navPlanBadge = container.querySelector('#nav-plan-badge');
+    if (navPlanBadge) {
+        if (user && user.role !== 'global_owner') {
+            const countries = await window.DB.getCountries();
+            const country = countries.find(c => String(c.id) === String(user.country_id));
+            const plan = (country ? (country.plan || 'none') : 'none').toUpperCase();
+            
+            navPlanBadge.textContent = plan === 'NONE' ? 'BÁSICO' : plan;
+            navPlanBadge.style.display = 'inline-block';
+            
+            if (plan === 'ESMERALDA') navPlanBadge.className = 'badge rounded-pill ms-2 border-0 py-1 px-2 bg-success text-white fw-bold';
+            else if (plan === 'DIAMANTE') navPlanBadge.className = 'badge rounded-pill ms-2 border-0 py-1 px-2 bg-primary text-white fw-bold';
+            else if (plan === 'BRONCE' || plan === 'BRONZE') navPlanBadge.className = 'badge rounded-pill ms-2 border-0 py-1 px-2 bg-warning text-dark fw-bold';
+            else navPlanBadge.className = 'badge rounded-pill ms-2 border-0 py-1 px-2 bg-secondary text-white fw-bold';
+        } else {
+            navPlanBadge.style.display = 'none';
+        }
+    }
 
     if (user) {
         // Show for logged in users

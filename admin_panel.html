@@ -90,6 +90,9 @@
     <script>
         async function initAdmin() {
             if (window.initLayout) await window.initLayout('admin_panel');
+            
+            // Script de limpieza temporal removido satisfactoriamente.
+
             await AuthObj.requireAdmin();
 
             const user = await AuthObj.getCurrentUser();
@@ -111,7 +114,13 @@
             else if (user.role === 'ministry_admin') selfRoleMark = '<span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-0" style="font-size: 10px;">GOBIERNO (ADMIN)</span>';
             else if (user.role === 'org_admin') selfRoleMark = '<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-0" style="font-size: 10px;">COOPERATIVA (ADMIN)</span>';
             
-            const planName = user.plan && user.plan !== 'none' ? user.plan.toUpperCase() : 'BÁSICO';
+            // RESTAURAR VISIBILIDAD DEL PLAN REGIONAL
+            const countryData = countriesData.find(c => String(c.id) === String(user.country_id));
+            const countryPlan = countryData ? (countryData.plan || 'none') : 'none';
+            const userPlan = user.plan && user.plan !== 'none' ? user.plan : 'none';
+            const activePlan = userPlan !== 'none' ? userPlan : countryPlan;
+            
+            const planName = activePlan && activePlan !== 'none' ? activePlan.toUpperCase() : 'BÁSICO';
             document.getElementById('self-role-badge').innerHTML = `${selfRoleMark} <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill px-2 py-0 ms-1" style="font-size: 9px;">PLAN: ${planName}</span>`;
 
             // Stats
@@ -122,10 +131,7 @@
             const userListContainer = document.getElementById('users-tbody');
             let html = '';
 
-            if(users.length === 0) {
-                userListContainer.innerHTML = `<div class="p-5 text-center text-muted">No hay usuarios bajo tu administración.</div>`;
-                return;
-            }
+            // Se eliminó el return temprano para permitir que el Dueño Global vea los países y la corporación aunque no haya otros usuarios.
 
             // Decorator helper
             const renderUserRow = async (u, cooperativesMap = {}) => {
@@ -217,7 +223,7 @@
                     sectionHtml += `<div class="accordion accordion-flush" id="coopsAccordion${prefix}">`;
                     for (let j = 0; j < coopList.length; j++) {
                         const coop = coopList[j];
-                        const coopUsers = groupUsers.filter(u => u.org_id === coop.id);
+                        const coopUsers = groupUsers.filter(u => String(u.org_id) === String(coop.id));
                         if (coopUsers.length > 0) {
                             sectionHtml += `
                                 <div class="accordion-item border-0 border-bottom border-light">
@@ -237,8 +243,8 @@
                     sectionHtml += `</div>`;
                 }
 
-                // 3. Independent Farmers
-                const independentFarmers = groupUsers.filter(u => u.role === 'farmer' && !u.org_id);
+                // 3. Independent Farmers (O aquellos cuya cooperativa no existe/no se encontró)
+                const independentFarmers = groupUsers.filter(u => u.role === 'farmer' && (!u.org_id || !coopMap[u.org_id]));
                 if (independentFarmers.length > 0) {
                     sectionHtml += `<div class="bg-light p-2 px-3 small fw-bold text-uppercase text-muted border-bottom mt-3"><i class="bi bi-person me-2"></i>Agricultores Independientes</div>`;
                     for (const u of independentFarmers) sectionHtml += await renderUserRow(u, coopMap);
@@ -250,17 +256,22 @@
             html += `<div class="accordion accordion-flush" id="usersAccordion">`;
             
             if (user.role === 'global_owner') {
-                // Determine which ID belongs to the Corporation to put it first
-                const corpId = Object.keys(countryMap).find(id => countryMap[id] === 'AgroSmart Corporatión');
+                // Determine which ID belongs to the Corporation to put it first (ID 3)
+                const corpId = '3';
                 
-                const uniqueCountryIds = [...new Set(users.map(u => u.country_id || 'null'))].sort((a, b) => {
+                // Include all countries from the database, even if they have no users yet
+                const baseIds = Object.keys(countryMap).map(String).filter(id => id !== 'undefined' && id !== 'null');
+                const userIds = users.map(u => String(u.country_id || 'null'));
+                const allKeys = [...new Set([...baseIds, ...userIds, corpId, 'null'])];
+
+                const uniqueCountryIds = allKeys.sort((a, b) => {
                     if (String(a) === String(corpId)) return -1;
                     if (String(b) === String(corpId)) return 1;
                     
                     const countryA = countriesData.find(c => String(c.id) === String(a));
                     const countryB = countriesData.find(c => String(c.id) === String(b));
-                    const nameA = a === 'null' ? 'ZZZ' : (countryA ? countryA.name : String(a));
-                    const nameB = b === 'null' ? 'ZZZ' : (countryB ? countryB.name : String(b));
+                    const nameA = String(a === 'null' ? 'ZZZ' : (countryA && countryA.name ? countryA.name : a));
+                    const nameB = String(b === 'null' ? 'ZZZ' : (countryB && countryB.name ? countryB.name : b));
                     
                     return nameA.localeCompare(nameB);
                 });
@@ -270,10 +281,17 @@
                     const isCorp = String(cid) === String(corpId);
                     
                     const countryData = countriesData.find(c => String(c.id) === String(cid));
-                    const countryName = cid === 'null' ? 'Sin Región Asignada' : (countryData ? countryData.name : cid);
-                    const countryPlan = countryData ? (countryData.plan || 'none') : 'none';
+                    let countryName;
+                    if (isCorp) {
+                        countryName = 'AgroSmart Corporatión';
+                    } else {
+                        countryName = cid === 'null' ? 'Sin Región Asignada' : (countryData && countryData.name ? countryData.name : cid);
+                    }
+                    countryName = String(countryName || 'Desconocido');
+                    const countryPlan = String(countryData ? (countryData.plan || 'none') : 'none');
                     
-                    const countryUsers = users.filter(u => (u.country_id || 'null') === cid);
+                    const countryUsers = users.filter(u => String(u.country_id || 'null') === String(cid));
+                    console.log(`[Admin] País: ${countryName} (${cid}), Usuarios encontrados: ${countryUsers.length}`);
                     
                     const iconClass = isCorp ? 'bi-star-fill text-warning' : 'bi-globe-americas text-primary';
                     const itemStyle = isCorp ? 'border-warning' : '';
@@ -290,7 +308,7 @@
                                 <div class="accordion-button collapsed ${headerStyle} fw-bold py-3 d-flex align-items-center">
                                     <div class="flex-grow-1 d-flex align-items-center" data-bs-toggle="collapse" data-bs-target="#collapseCountry${i}" style="cursor:pointer;">
                                         <i class="bi ${iconClass} me-2 fs-5"></i> 
-                                        ${countryName.toUpperCase()} 
+                                        ${String(countryName).toUpperCase()} 
                                         ${isCorp ? '<span class="ms-2 badge bg-warning text-dark border border-warning rounded-pill" style="font-size:10px;">CREADORES</span>' : 
                                           `<span class="ms-2 badge ${planColors[countryPlan] || 'bg-light'} text-white border-0 rounded-pill px-2" style="font-size:9px;">PLAN ${planLabel}</span>`}
                                         <span class="badge ${badgeClass} rounded-pill ms-3">${countryUsers.length}</span>

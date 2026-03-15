@@ -249,12 +249,30 @@
                 let satelliteLayer = null;
                 const satelliteUrl = 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer';
                 
+                // --- KERNEL INTERCEPTOR ---
+                // Previene que Cesium dispare peticiones XHR nativas si el navegador marca offline
+                function makeOfflineSafe(provider) {
+                    if (!provider) return provider;
+                    const origReq = provider.requestImage;
+                    provider.requestImage = function(x, y, level, request) {
+                        if (!navigator.onLine) {
+                            const c = document.createElement('canvas');
+                            c.width = 256; c.height = 256;
+                            return c; // Devuelve tile vacío transparente
+                        }
+                        try {
+                            return origReq.call(this, x, y, level, request);
+                        } catch(e) { return undefined; }
+                    };
+                    return provider;
+                }
+
                 if (await checkService(satelliteUrl)) {
                     try {
-                        satelliteProvider = await Cesium.ArcGisMapServerImageryProvider.fromUrl(
+                        satelliteProvider = makeOfflineSafe(await Cesium.ArcGisMapServerImageryProvider.fromUrl(
                             satelliteUrl,
                             { maximumLevel: 19 }
-                        );
+                        ));
                         if (satelliteProvider?.errorEvent) {
                             satelliteProvider.errorEvent.addEventListener(e => {
                                 e.retry = false;
@@ -287,6 +305,7 @@
                     useDefaultRenderLoop: true,
                     terrainShadows: Cesium.ShadowMode.ENABLED,
                     msaaSamples: 4,
+                    requestRenderMode: true,
                     baseLayer: satelliteProvider ? (satelliteLayer = Cesium.ImageryLayer.fromProviderAsync(Promise.resolve(satelliteProvider))) : 
                                (navigator.onLine ? undefined : new Cesium.ImageryLayer(new Cesium.GridImageryProvider()))
                 });
@@ -330,32 +349,31 @@
 
                 if (navigator.onLine) {
                     try {
-                        const labelsProvider = await Cesium.ArcGisMapServerImageryProvider.fromUrl(
+                        const labelsProvider = makeOfflineSafe(await Cesium.ArcGisMapServerImageryProvider.fromUrl(
                             'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer',
                             { maximumLevel: 19 }
-                        );
+                        ));
                         if (labelsProvider?.errorEvent) {
                             labelsProvider.errorEvent.addEventListener(e => {
                                 e.retry = false;
-                                console.warn("Labels layer failed. Removing.");
-                                viewer.imageryLayers.remove(lbLayer);
+                                try { viewer.imageryLayers.remove(lbLayer); } catch(ex){}
                             });
                         }
                         const lbLayer = viewer.imageryLayers.addImageryProvider(labelsProvider);
 
-                        const roadsProvider = await Cesium.ArcGisMapServerImageryProvider.fromUrl(
+                        const roadsProvider = makeOfflineSafe(await Cesium.ArcGisMapServerImageryProvider.fromUrl(
                             'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer',
                             { maximumLevel: 19 }
-                        );
+                        ));
                         if (roadsProvider?.errorEvent) {
                             roadsProvider.errorEvent.addEventListener(e => {
                                 e.retry = false;
-                                viewer.imageryLayers.remove(rdLayer);
+                                try { viewer.imageryLayers.remove(rdLayer); } catch(ex){}
                             });
                         }
                         const rdLayer = viewer.imageryLayers.addImageryProvider(roadsProvider);
                     } catch (e) {
-                        console.warn("Labels/Roads providers unreachable:", e.message);
+                        // Silenced offline or failing ArcGis errors
                     }
                 }
 
@@ -478,9 +496,6 @@
                                     polygon: {
                                         hierarchy: new Cesium.PolygonHierarchy(hierarchy),
                                         material: Cesium.Color.fromCssColorString(isCoop ? '#FFD700' : '#10b981').withAlpha(0.4),
-                                        outline: true,
-                                        outlineColor: isCoop ? Cesium.Color.GOLD : Cesium.Color.YELLOW,
-                                        outlineWidth: 2,
                                         distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0.0, 50000.0)
                                     },
                                     position: Cesium.Cartesian3.fromDegrees(coords[0].lng, coords[0].lat),
