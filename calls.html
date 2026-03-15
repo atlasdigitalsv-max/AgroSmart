@@ -55,8 +55,24 @@
         let api = null;
 
         async function initCalls() {
-            await AuthObj.requireAuth();
-            renderNavbar('calls');
+            if (window.initLayout) await window.initLayout('chat');
+            const user = await AuthObj.requireAuth();
+
+            // Check License Plan for the Country
+            const countries = await window.DB.getCountries();
+            const country = countries.find(c => String(c.id) === String(user.country_id));
+            const plan = country ? (country.plan || 'none') : 'none';
+
+            if (plan !== 'diamante' && plan !== 'esmeralda' && user.role !== 'global_owner') {
+                await Swal.fire({
+                    icon: 'warning',
+                    title: 'Función Pro Restringida',
+                    text: `El plan actual de tu región (${plan.toUpperCase()}) no incluye videollamadas. Esta función requiere el plan DIAMANTE o ESMERALDA.`,
+                    confirmButtonText: 'Entendido'
+                });
+                window.location.href = 'dashboard.html';
+                return;
+            }
 
             // Auto-join if room is in URL
             const urlParams = new URLSearchParams(window.location.search);

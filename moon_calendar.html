@@ -6,11 +6,12 @@
     <title>Calendario Lunar</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/modern_agro.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.108/Build/Cesium/Cesium.js"></script>
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.108/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
 </head>
 <body class="page-body">
-    <div id="navbar-container" class="animate-slide-up"></div>
+    <div id="navbar-container"></div>
 
     <div class="container mt-5">
         <div class="agro-card mx-auto animate-slide-up" style="max-width:600px;">
@@ -25,7 +26,12 @@
                         <button id="moon-search-btn" type="button" class="btn-primary map-search-btn btn-sm">Buscar</button>
                     </div>
                     <div id="moon-search-results" class="map-search-results mb-3"></div>
-                    <div id="moon-map" style="height: 300px; border-radius: 20px; border: 1px solid var(--border-color); margin-bottom: 20px;"></div>
+                    <div id="moon-map" style="position: relative; height: 300px; border-radius: 20px; border: 1px solid var(--border-color); margin-bottom: 20px;">
+                        <div class="map-zoom-controls animate-slide-up">
+                            <button class="map-zoom-btn" type="button" onclick="if(window.viewer) window.viewer.camera.zoomIn(window.viewer.camera.positionCartographic.height * 0.5);" title="Acercar">+</button>
+                            <button class="map-zoom-btn" type="button" onclick="if(window.viewer) window.viewer.camera.zoomOut(window.viewer.camera.positionCartographic.height * 0.5);" title="Alejar">−</button>
+                        </div>
+                    </div>
                     <div class="small text-muted mb-3">📍 Haz clic en el mapa para situar el pin. Coordenadas: <span id="coords-display" class="fw-bold">No seleccionadas</span></div>
                 </div>
                 <div class="form-group mb-4">
@@ -105,73 +111,162 @@
     </style>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/config.js"></script>
     <script src="js/database.js"></script>
     <script src="js/layout.js"></script>
-    <script src="js/map-utils.js"></script>
     
     <script>
         async function initMoon() {
+            if (window.initLayout) await window.initLayout('moon');
             await AuthObj.requireAuth();
-            renderNavbar('moon');
+            
+            // Set default date to today
+            document.getElementById('date').value = new Date().toISOString().split('T')[0];
         }
 
         document.addEventListener('DOMContentLoaded', initMoon);
 
         // Initialize Map
-        const map = L.map('moon-map', {
-            worldCopyJump: true,
-            maxBounds: [[-90, -180], [90, 180]],
-            maxBoundsViscosity: 0.9
-        }).setView([13.6929, -89.2182], 4); // Initial view
+        let viewer;
+        let selectedCoords = null;
+        let marker = null;
 
-        // Base layer adapts to current theme (light/dark)
-        watchThemeOnMap(map);
+        async function initCesium() {
+            try {
+                Cesium.Ion.defaultAccessToken = null;
+
+                const satelliteProvider = await Cesium.ArcGisMapServerImageryProvider.fromUrl(
+                    'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',
+                    { maximumLevel: 19 }
+                );
+                if (satelliteProvider?.errorEvent) satelliteProvider.errorEvent.addEventListener(e => e.retry = false);
+
+                viewer = new Cesium.Viewer('moon-map', {
+                    animation: false,
+                    baseLayerPicker: false,
+                    fullscreenButton: false,
+                    vrButton: false,
+                    geocoder: false,
+                    homeButton: false,
+                    infoBox: false,
+                    sceneModePicker: false,
+                    selectionIndicator: false,
+                    timeline: false,
+                    navigationHelpButton: false,
+                    navigationInstructionsInitiallyVisible: false,
+                    scene3DOnly: true,
+                    targetFrameRate: 60,
+                    useDefaultRenderLoop: true,
+                    baseLayer: Cesium.ImageryLayer.fromProviderAsync(Promise.resolve(satelliteProvider)),
+                });
+                window.viewer = viewer;
+                document.getElementById('moon-map').style.pointerEvents = 'auto';
+
+                viewer.scene.mode = Cesium.SceneMode.SCENE3D;
+                viewer.scene.globe.enableLighting = true;
+                viewer.scene.globe.depthTestAgainstTerrain = true;
+
+                const labelsProvider = await Cesium.ArcGisMapServerImageryProvider.fromUrl(
+                    'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer',
+                    { maximumLevel: 19 }
+                );
+                if (labelsProvider?.errorEvent) labelsProvider.errorEvent.addEventListener(e => e.retry = false);
+                viewer.imageryLayers.addImageryProvider(labelsProvider);
+
+                viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(-89.2182, 13.6929, 5000000.0) });
+
+                const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+                handler.setInputAction(function(click) {
+                    const cartesian = viewer.camera.pickEllipsoid(click.position, viewer.scene.globe.ellipsoid);
+                    if (cartesian) {
+                        const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
+                        const lon = Cesium.Math.toDegrees(cartographic.longitude);
+                        const lat = Cesium.Math.toDegrees(cartographic.latitude);
+                        
+                        selectedCoords = { lat, lng: lon };
+                        document.getElementById('coords-display').innerText = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+                        document.getElementById('btn-analyze').disabled = false;
+
+                        if (marker) {
+                            marker.position = cartesian;
+                        } else {
+                            marker = viewer.entities.add({
+                                position: cartesian,
+                                point: { pixelSize: 14, color: Cesium.Color.YELLOW, outlineColor: Cesium.Color.WHITE, outlineWidth: 2 }
+                            });
+                        }
+                    }
+                }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+            } catch (err) {
+                console.warn("Map Init Error:", err);
+                document.getElementById('moon-map').innerHTML = '<div class="alert alert-danger h-100 d-flex align-items-center justify-content-center">Error al cargar el globo 3D. Verifica tu conexión a internet.</div>';
+            }
+        }
+        
+        initCesium();
 
         const moonSearchInput = document.getElementById('moon-search-input');
         const moonSearchBtn = document.getElementById('moon-search-btn');
         const moonSearchResults = document.getElementById('moon-search-results');
 
-        let marker = null;
-        let selectedCoords = null;
-
-        setupMapSearch({
-            map,
-            searchInput: moonSearchInput,
-            searchBtn: moonSearchBtn,
-            resultsContainer: moonSearchResults,
-            onStatusMessage: (msg) => {
-                // We can show a subtle status (optional) in the coords display area
-                document.getElementById('coords-display').innerText = msg;
-            },
-            onSelectPlace: ({ lat, lon, place }) => {
-                if (marker) {
-                    marker.setLatLng([lat, lon]);
-                } else {
-                    marker = L.marker([lat, lon]).addTo(map);
+        moonSearchBtn.addEventListener('click', async () => {
+            const query = moonSearchInput.value.trim();
+            if(query.length < 3) return;
+            
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+                if (!response.ok) throw new Error('Network error');
+                const data = await response.json();
+                
+                moonSearchResults.innerHTML = '';
+                if(data.length === 0) {
+                    moonSearchResults.innerHTML = '<div class="list-group-item text-muted">No se encontraron resultados</div>';
+                    moonSearchResults.style.display = 'block';
+                    return;
                 }
-                map.setView([lat, lon], 10);
-                selectedCoords = { lat, lng: lon };
-                document.getElementById('coords-display').innerText = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
-                document.getElementById('btn-analyze').disabled = false;
-                marker.bindPopup(place.display_name).openPopup();
+
+                data.slice(0, 5).forEach(place => {
+                    const div = document.createElement('div');
+                    div.className = 'list-group-item list-group-item-action map-search-item';
+                    div.textContent = place.display_name;
+                    div.onclick = () => {
+                        const lat = parseFloat(place.lat);
+                        const lon = parseFloat(place.lon);
+                        
+                        viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(lon, lat, 10000.0) });
+                        
+                        selectedCoords = { lat, lng: lon };
+                        document.getElementById('coords-display').innerText = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+                        document.getElementById('btn-analyze').disabled = false;
+
+                        const cartesian = Cesium.Cartesian3.fromDegrees(lon, lat);
+                        if (marker) {
+                            marker.position = cartesian;
+                        } else {
+                            marker = viewer.entities.add({
+                                position: cartesian,
+                                point: { pixelSize: 14, color: Cesium.Color.YELLOW, outlineColor: Cesium.Color.WHITE, outlineWidth: 2 }
+                            });
+                        }
+                        
+                        moonSearchResults.style.display = 'none';
+                        moonSearchInput.value = place.display_name.split(',')[0];
+                    };
+                    moonSearchResults.appendChild(div);
+                });
+                moonSearchResults.style.display = 'block';
+            } catch (e) {
+                 moonSearchResults.innerHTML = '<div class="list-group-item text-danger">Error buscando ubicación</div>';
+                 moonSearchResults.style.display = 'block';
             }
         });
 
-        map.on('click', (e) => {
-            const { lat, lng } = e.latlng;
-            selectedCoords = { lat, lng };
-            
-            if (marker) {
-                marker.setLatLng(e.latlng);
-            } else {
-                marker = L.marker(e.latlng).addTo(map);
+        document.addEventListener('click', (e) => {
+            if(!e.target.closest('.map-search-wrapper') && !e.target.closest('#moon-search-results')) {
+                moonSearchResults.style.display = 'none';
             }
-            
-            document.getElementById('coords-display').innerText = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-            document.getElementById('btn-analyze').disabled = false;
         });
 
         // Set default date to today
@@ -223,11 +318,11 @@
                     resContainer.style.display = 'block';
                     resContainer.scrollIntoView({ behavior: 'smooth' });
                 } else {
-                    alert('No se pudieron obtener datos lunares para esta región. Intenta con otra zona.');
+                    window.showErrorModal('Error Astrológico', 'No se pudieron obtener datos lunares para esta región. Intenta con otra zona.');
                 }
             } catch (err) {
                 console.error(err);
-                alert('Error al conectar con el servicio astral mundial.');
+                window.showErrorModal('Error de Conexión', 'No se pudo conectar con el servicio astral mundial.');
             } finally {
                 loading.style.display = 'none';
             }

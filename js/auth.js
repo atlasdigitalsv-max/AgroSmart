@@ -3,6 +3,7 @@
 // Real OTP Integration with EmailJS
 
 let temporalEmail = '';
+let temporalCountryId = null;
 let temporalOTP = '';
 let otpExpiry = 0; // Timestamp for expiration
 let isRecoveryFlow = false; // Flag to differentiate between Register and Recover
@@ -126,7 +127,23 @@ async function checkExistingSession() {
 }
 checkExistingSession();
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+
+    // Popula países en el registro
+    const countrySelect = document.getElementById('register-country');
+    if (countrySelect) {
+        try {
+            const countries = await window.DB.getCountries();
+            countries.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.name;
+                countrySelect.appendChild(opt);
+            });
+        } catch (err) {
+            console.error("Error cargando países:", err);
+        }
+    }
 
     // === LOGIN FLOW ===
     const loginForm = document.getElementById('login-form');
@@ -157,6 +174,12 @@ document.addEventListener('DOMContentLoaded', () => {
         registerForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('register-email').value;
+            const countryId = document.getElementById('register-country').value;
+
+            if (!countryId) {
+                showError('register-view', 'Por favor selecciona tu país.');
+                return;
+            }
 
             if (await window.DB.getUserByEmail(email)) {
                 showError('register-view', 'Este correo ya pertenece a una cuenta.');
@@ -164,6 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             isRecoveryFlow = false;
+            temporalCountryId = countryId;
             const btn = e.target.querySelector('button');
             await sendRealOTP(email, btn, btn.innerText, 'registro');
         });
@@ -236,15 +260,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isRecoveryFlow) {
                     const user = await window.DB.getUserByEmail(temporalEmail);
                     await window.DB.updateUserPassword(user.id, pwd);
-                    alert('¡Contraseña restablecida! Ya puedes iniciar sesión.');
-                } else {
+                    window.showSuccessModal('¡Contraseña Restablecida!', 'Ya puedes iniciar sesión con tu nueva contraseña.');
+                    switchView('login-view');
+                } else { // This branch handles registration
                     await window.DB.createUser({
                         email: temporalEmail,
-                        password: pwd
+                        password: pwd,
+                        country_id: temporalCountryId,
+                        role: 'farmer'
                     });
-                    alert('¡Felicidades! Tu cuenta ha sido creada. Ahora puedes iniciar sesión.');
+                    window.showSuccessModal('¡Cuenta Creada Exitosamente!', 'Tu cuenta ha sido creada. Ahora puedes iniciar sesión.');
+                    switchView('login-view');
                 }
-                switchView('login-view');
                 document.getElementById('login-email').value = temporalEmail;
             } catch(err) {
                 showError('create-password-view', err.message);

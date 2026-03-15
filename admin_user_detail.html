@@ -46,8 +46,10 @@
             </div>
         </div>
         
-        <div class="mt-5 d-flex justify-content-center">
-            <button id="btn-delete" class="btn-danger px-5 py-3 shadow-sm border-0" style="display:none;">Eliminar Cuenta Permanentemente</button>
+        <div class="mt-5 d-flex flex-wrap justify-content-center gap-3" id="admin-controls-container">
+            <button id="btn-role" class="btn-admin-manage px-4 py-3 shadow-sm border-0" style="display:none; border-radius: var(--border-radius-pill);">Gestionar Rol</button>
+            <button id="btn-suspend" class="btn-admin-suspend px-4 py-3 shadow-sm border-0" style="display:none; border-radius: var(--border-radius-pill);">Suspender Cuenta</button>
+            <button id="btn-delete" class="btn-danger px-4 py-3 shadow-sm border-0" style="display:none;">Eliminar Cuenta Permanentemente</button>
         </div>
     </div>
 
@@ -59,8 +61,8 @@
 
     <script>
         async function initUserDetail() {
+            if (window.initLayout) await window.initLayout('admin_panel');
             await AuthObj.requireAdmin();
-            renderNavbar('');
 
             const urlParams = new URLSearchParams(window.location.search);
             const viewUserId = parseInt(urlParams.get('id'), 10);
@@ -76,11 +78,28 @@
             document.getElementById('user-created').innerText = new Date(viewUser.date_joined).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
 
             const tagContainer = document.getElementById('user-tag-container');
-            if(viewUser.is_superuser) {
-                tagContainer.innerHTML = '<span class="badge bg-primary rounded-pill px-3 py-2">MODO ADMINISTRADOR</span>';
+            let roleHtml = '';
+            
+            if (viewUser.role === 'global_owner') {
+                roleHtml = '<span class="badge bg-warning text-dark rounded-pill px-3 py-2 fw-bold" style="box-shadow: 0 0 10px rgba(255,193,7,0.5);">👑 CREADOR / DUEÑO GLOBAL</span>';
+            } else if (viewUser.role === 'ministry_admin') {
+                roleHtml = '<span class="badge bg-primary rounded-pill px-3 py-2">🏛️ ADMIN MINISTERIO</span>';
+            } else if (viewUser.role === 'org_admin') {
+                roleHtml = '<span class="badge bg-success rounded-pill px-3 py-2">🏢 ADMIN COOPERATIVA</span>';
             } else {
-                tagContainer.innerHTML = '<span class="status-badge status-active">CUENTA ACTIVA</span>';
+                roleHtml = '<span class="badge bg-light text-muted border rounded-pill px-3 py-2">🚜 AGRICULTOR</span>';
             }
+
+
+            const isSuspended = viewUser.suspension_end && new Date(viewUser.suspension_end) > new Date();
+            if (isSuspended) {
+                const susEnd = new Date(viewUser.suspension_end);
+                const blockType = susEnd.getFullYear() === 2100 ? '🛑 BLOQUEO PERMANENTE' : `🛑 SUSPENDIDO HASTA ${susEnd.toLocaleDateString()}`;
+                roleHtml += ` <span class="badge bg-danger rounded-pill px-3 py-2 ms-2">${blockType}</span>`;
+            } else {
+                roleHtml += ' <span class="status-badge status-active ms-2">ACTIVA</span>';
+            }
+            tagContainer.innerHTML = roleHtml;
 
             const crops = await window.DB.getCropsByUser(viewUserId);
             document.getElementById('crop-count-badge').innerText = `${crops.length} registrados`;
@@ -101,7 +120,7 @@
                                 <div class="mt-1" style="font-size: 11px; opacity: 0.7;">📍 ${location} • 📅 Sembrado: ${date}</div>
                             </div>
                         </div>
-                        <button onclick="deleteMapCrop(${c.id})" class="btn-secondary btn-sm px-3 text-danger border-0" style="font-size: 12px; border-radius: 10px;">Eliminar</button>
+                        <button onclick="deleteMapCrop(${c.id})" class="btn-secondary btn-sm px-3 text-danger border-0" style="font-size: 12px;">Eliminar</button>
                     </div>
                 `;
             });
@@ -112,19 +131,275 @@
             cropsContainer.innerHTML = html;
 
             const btnDelete = document.getElementById('btn-delete');
-            if (!viewUser.is_superuser) {
+            const btnSuspend = document.getElementById('btn-suspend');
+            
+            // ROLE PROTECTION & SCOPE LOGIC
+            const currentUser = await window.AuthObj.getCurrentUser();
+            let canManage = false;
+            let canDelete = false;
+            let availableRoles = [];
+            
+            if (currentUser.role === 'global_owner') {
+                canManage = true; 
+                canDelete = true;
+                availableRoles = [
+                    {value: 'farmer', text: 'Agricultor'},
+                    {value: 'org_admin', text: 'Administrador Organización'},
+                    {value: 'ministry_admin', text: 'Administrador Gobierno'},
+                    {value: 'global_owner', text: 'Dueño Global'}
+                ];
+            } else if (currentUser.role === 'ministry_admin') {
+                canManage = currentUser.country_id === viewUser.country_id && ['org_admin', 'farmer'].includes(viewUser.role);
+                canDelete = canManage;
+                if (canManage) {
+                    availableRoles = [
+                        {value: 'farmer', text: 'Agricultor'},
+                        {value: 'org_admin', text: 'Administrador Organización'}
+                    ];
+                }
+            } else if (currentUser.role === 'org_admin') {
+                canManage = currentUser.org_id === viewUser.org_id && viewUser.role === 'farmer';
+                canDelete = canManage;
+                if (canManage) {
+                    availableRoles = [{value: 'farmer', text: 'Agricultor'}]; // Org Admins can't promote anyone
+                }
+            }
+
+            const isSelf = viewUserId === currentUser.id;
+
+            if (canManage && !isSelf) {
+                // Determine if already suspended
+                const isSuspended = viewUser.suspension_end && new Date(viewUser.suspension_end) > new Date();
+
+                if (!isSuspended) {
+                    btnSuspend.style.display = 'block';
+                    btnSuspend.onclick = async () => {
+                        const { value: formValues } = await Swal.fire({
+                            title: 'Suspender Usuario',
+                            html: `
+                                <div style="padding: 10px; text-align: left;">
+                                    <div class="mb-3">
+                                        <label class="form-label mb-2"><i class="bi bi-clock me-2"></i>Duración de la Suspensión</label>
+                                        <select id="swal-duration" class="swal2-select w-100 m-0">
+                                            <option value="24">24 Horas</option>
+                                            <option value="168">7 Días</option>
+                                            <option value="720">1 Mes</option>
+                                            <option value="999999">Permanente (Bloqueo Total)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="form-label mb-2"><i class="bi bi-chat-left-dots me-2"></i>Motivo de la Suspensión</label>
+                                        <textarea id="swal-reason" class="swal2-textarea w-100 m-0" placeholder="Ej: Incumplimiento de términos o mala conducta..." rows="4"></textarea>
+                                    </div>
+                                </div>
+                            `,
+                            icon: 'warning',
+                            focusConfirm: false,
+                            showCancelButton: true,
+                            confirmButtonColor: '#ef4444',
+                            confirmButtonText: 'Aplicar Suspensión',
+                            cancelButtonText: 'Cancelar',
+                            preConfirm: () => {
+                                const duration = document.getElementById('swal-duration').value;
+                                const reason = document.getElementById('swal-reason').value;
+                                if (!reason) {
+                                    Swal.showValidationMessage('Debes ingresar un motivo');
+                                }
+                                return { duration: parseInt(duration), reason };
+                            }
+                        });
+
+                        if (formValues) {
+                            try {
+                                const currentAdmin = await window.AuthObj.getCurrentUser();
+                                await window.DB.suspendUser(viewUserId, formValues.duration, formValues.reason, currentAdmin.id);
+                                window.showSuccessModal('Usuario Suspendido', 'El usuario ha sido suspendido exitosamente.');
+                                setTimeout(() => window.location.reload(), 1500);
+                            } catch (err) {
+                                window.showErrorModal('Error', err.message);
+                            }
+                        }
+                    };
+                } else if (currentUser.role === 'global_owner' || !viewUser.is_superuser) {
+                    // Si ya está suspendido, permitimos levantar el castigo
+                    btnSuspend.style.display = 'block';
+                    btnSuspend.innerText = 'Levantar Suspensión';
+                    btnSuspend.classList.remove('btn-admin-suspend');
+                    btnSuspend.classList.add('btn-admin-region'); // Reuse green style
+                    btnSuspend.onclick = async () => {
+                        const isConfirmed = await window.confirmActionModal(
+                            'Absorber Castigo',
+                            '¿Deseas levantar la suspensión actual de este usuario y permitirle entrar nuevamente al sistema?',
+                            'Sí, perdonar',
+                            'Cancelar'
+                        );
+                        if (isConfirmed) {
+                            try {
+                                await window.DB.removeSuspension(viewUserId);
+                                window.showSuccessModal('Suspensión Levantada', 'El usuario ya puede acceder nuevamente al sistema.');
+                                setTimeout(() => window.location.reload(), 1500);
+                            } catch (err) {
+                                window.showErrorModal('Error', err.message);
+                            }
+                        }
+                    };
+                }
+
+                // ROLE PROMOTION 
+                const btnRole = document.getElementById('btn-role');
+                if (currentUser.role === 'global_owner' || (currentUser.role === 'ministry_admin' && viewUser.role !== 'ministry_admin')) {
+                    btnRole.style.display = 'block';
+                    btnRole.innerText = 'Cambiar Rol';
+                    btnRole.onclick = async () => {
+                        const rolesAllowed = {
+                            'farmer': 'Agricultor',
+                            'org_admin': 'Admin Cooperativa'
+                        };
+                        
+                        if (currentUser.role === 'global_owner') {
+                            rolesAllowed['ministry_admin'] = 'Admin Ministerio';
+                            rolesAllowed['global_owner'] = 'Corporación (Dueño Global)';
+                        }
+
+                        const { value: newRole } = await Swal.fire({
+                            title: 'Cambiar Rol del Usuario',
+                            icon: 'info',
+                            input: 'select',
+                            inputOptions: rolesAllowed,
+                            inputPlaceholder: 'Selecciona un nuevo rol',
+                            showCancelButton: true,
+                            confirmButtonColor: 'var(--primary-color)'
+                        });
+
+                        if (newRole) {
+                            try {
+                                await window.DB.setAdminStatus(viewUserId, newRole !== 'farmer', newRole);
+                                window.showSuccessModal('Rol Actualizado', `El usuario ahora tiene el rango de: ${newRole}.`);
+                                setTimeout(() => window.location.reload(), 1500);
+                            } catch (err) {
+                                window.showErrorModal('Error', err.message);
+                            }
+                        }
+                    };
+                }
+
+
+                // AFFILIATION MANAGEMENT (Country / Organization)
+                const controlsContainer = document.getElementById('admin-controls-container');
+                const btnAffiliation = document.createElement('button');
+                btnAffiliation.className = 'btn-admin-region px-4 py-3 shadow-sm border-0';
+                btnAffiliation.style.borderRadius = 'var(--border-radius-pill)';
+                btnAffiliation.innerHTML = '<i class="bi bi-geo-alt me-2"></i>Asignar Región/Cooperativa';
+                
+                if (currentUser.role === 'global_owner' || currentUser.role === 'ministry_admin') {
+                    controlsContainer.appendChild(btnAffiliation);
+                    
+                    // Main Flow: Assign Cooperativa
+                    btnAffiliation.onclick = async () => {
+                        try {
+                            const targetCountryId = currentUser.role === 'ministry_admin' ? currentUser.country_id : viewUser.country_id;
+                            
+                            if (!targetCountryId) {
+                                window.showErrorModal('Error', 'El usuario no tiene una región asignada. Por favor asigna una región primero.');
+                                return;
+                            }
+
+                            Swal.fire({ title: 'Cargando Cooperativas...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                            const orgs = await window.DB.getCooperativasByCountry(targetCountryId);
+                            Swal.close();
+
+                            const orgOptions = { 'none': 'Sin Cooperativa (Independiente)' };
+                            orgs.forEach(o => orgOptions[o.id] = o.name);
+
+                            const { value: orgId } = await Swal.fire({
+                                title: 'Asignar Cooperativa',
+                                icon: 'building',
+                                input: 'select',
+                                inputOptions: orgOptions,
+                                inputPlaceholder: 'De la lista...',
+                                showCancelButton: true,
+                                confirmButtonColor: 'var(--primary-color)'
+                            });
+
+                            if (orgId === undefined) return;
+
+                            await window.DB.updateUserAffiliation(viewUserId, targetCountryId, orgId);
+                            window.showSuccessModal('Actualizado', 'Cooperativa asignada correctamente.');
+                            setTimeout(() => window.location.reload(), 1500);
+                        } catch (err) {
+                            window.showErrorModal('Error', err.message);
+                        }
+                    };
+
+                    // Secondary Flow: Change Region (Only for Global Owner or as explicitly requested)
+                    if (currentUser.role === 'global_owner') {
+                        const btnRegion = document.createElement('button');
+                        btnRegion.className = 'btn-agro-light px-4 py-3 shadow-sm border-0';
+                        btnRegion.style.borderRadius = 'var(--border-radius-pill)';
+                        btnRegion.innerHTML = '<i class="bi bi-globe me-2"></i>Corregir Región';
+                        controlsContainer.appendChild(btnRegion);
+
+                        btnRegion.onclick = async () => {
+                            try {
+                                Swal.fire({ title: 'Cargando Regiones...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                                const countries = await window.DB.getCountries();
+                                Swal.close();
+
+                                const countryOptions = {};
+                                countries.forEach(c => countryOptions[c.id] = c.name);
+
+                                const { value: countryId } = await Swal.fire({
+                                    title: 'Cambiar Región',
+                                    icon: 'question',
+                                    input: 'select',
+                                    inputOptions: countryOptions,
+                                    inputValue: viewUser.country_id,
+                                    showCancelButton: true,
+                                    confirmButtonColor: 'var(--primary-color)'
+                                });
+
+                                if (!countryId) return;
+
+                                await window.DB.updateUserAffiliation(viewUserId, countryId, viewUser.org_id);
+                                window.showSuccessModal('Región Actualizada', 'El usuario ha sido reubicado.');
+                                setTimeout(() => window.location.reload(), 1500);
+                            } catch (err) {
+                                window.showErrorModal('Error', err.message);
+                            }
+                        };
+                    }
+                }
+
                 btnDelete.style.display = 'block';
                 btnDelete.onclick = async () => {
-                    if(confirm('¿Seguro que quieres eliminar este usuario completamente? Esta acción borrará todos sus datos y cultivos de forma permanente.')) {
-                        await window.DB.deleteUser(viewUserId);
-                        window.location.href = 'admin_panel.html';
+                    const isConfirmed = await window.confirmActionModal(
+                        'Peligro Irreversible',
+                        '¿Seguro que quieres eliminar este usuario completamente? Esta acción borrará todos sus datos y cultivos de forma permanente.',
+                        'Sí, destruir cuenta',
+                        'Cancelar'
+                    );
+                    if(isConfirmed) {
+                        try {
+                            await window.DB.deleteUser(viewUserId);
+                            window.location.href = 'admin_panel.html';
+                        } catch (err) {
+                            window.showErrorModal('Error', err.message);
+                        }
                     }
                 };
+            } else if (!canManage) {
+                 tagContainer.innerHTML += '<div class="mt-2 text-danger small"><i class="fas fa-lock"></i> Perfil protegido por la jerarquía del Creador.</div>';
             }
         }
 
         window.deleteMapCrop = async function(id) {
-            if(confirm('¿Deseas eliminar este registro de cultivo?')) {
+            const isConfirmed = await window.confirmActionModal(
+                'Eliminar Cultivo',
+                '¿Deseas eliminar este registro de cultivo permanentemente?',
+                'Sí, eliminar',
+                'Conservar'
+            );
+            if(isConfirmed) {
                 await window.DB.deleteCrop(id);
                 window.location.reload();
             }

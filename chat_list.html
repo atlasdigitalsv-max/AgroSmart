@@ -12,8 +12,9 @@
 
     <div class="container mt-4 mb-4 animate-slide-up">
         <div class="chat-container mx-auto">
-            <div class="chat-header">
-                <h2>💬 Mensajería</h2>
+            <div class="chat-header d-flex justify-content-between align-items-center">
+                <h2 class="m-0">💬 Mensajería</h2>
+                <div id="admin-group-tools"></div>
             </div>
             
             <div class="chat-list" id="chat-list">
@@ -30,8 +31,8 @@
 
     <script>
         async function initChatList() {
+            if (window.initLayout) await window.initLayout('chat');
             await AuthObj.requireAuth();
-            renderNavbar('');
 
             const currentUser = await AuthObj.getCurrentUser();
             const chatList = document.getElementById('chat-list');
@@ -42,13 +43,36 @@
             
             if (currentUser.is_superuser) {
                 targetUsers = allUsers.filter(u => u.id !== currentUser.id);
+                
+                // Add Create Group Button
+                const toolsContainer = document.getElementById('admin-group-tools');
+                toolsContainer.innerHTML = `<button onclick="openCreateGroupModal()" class="btn-primary btn-sm rounded-pill px-3 py-2 ms-3 border-0 shadow-sm" style="font-size: 13px;">➕ Crear Grupo</button>`;
             } else {
                 targetUsers = allUsers.filter(u => u.is_superuser);
             }
 
+            const myGroups = await window.DB.getUserGroups(currentUser.id);
             let html = '';
-            if (targetUsers.length === 0) {
-                html = '<div class="p-4 text-center">📭 No hay usuarios para chatear</div>';
+
+            // Render Groups First
+            for (const g of myGroups) {
+                const msgs = await window.DB.getGroupMessages(g.id);
+                let lastMsg = 'Grupo creado';
+                if(msgs.length > 0) lastMsg = msgs[msgs.length - 1].text || msgs[msgs.length - 1].message;
+                
+                html += `
+                    <a href="chat_detail.html?group_id=${g.id}" class="chat-item" style="background: rgba(47, 133, 90, 0.05); border-left: 3px solid var(--primary-color);">
+                        <div class="chat-avatar" style="background: var(--primary-color);">👥</div>
+                        <div class="chat-info">
+                            <h3>${g.name}</h3>
+                            <p>${lastMsg}</p>
+                        </div>
+                    </a>
+                `;
+            }
+
+            if (targetUsers.length === 0 && myGroups.length === 0) {
+                html = '<div class="p-4 text-center">📭 No hay usuarios ni grupos para chatear</div>';
             } else {
                 for (const u of targetUsers) {
                     const msgs = await window.DB.getMessages(currentUser.id, u.id);
@@ -72,6 +96,65 @@
             }
             chatList.innerHTML = html;
         }
+
+        window.openCreateGroupModal = async function() {
+            const allUsers = await window.DB.getAllUsers();
+            const currentUser = await window.AuthObj.getCurrentUser();
+            const otherUsers = allUsers.filter(u => u.id !== currentUser.id);
+
+            let checkboxHtml = '';
+            for(const u of otherUsers) {
+                checkboxHtml += `
+                    <div class="form-check text-start mb-2">
+                        <input class="form-check-input group-member-checkbox" type="checkbox" value="${u.id}" id="chk_${u.id}">
+                        <label class="form-check-label ms-2" for="chk_${u.id}">
+                            ${u.email} ${u.is_superuser ? '(Admin)' : ''}
+                        </label>
+                    </div>
+                `;
+            }
+
+            const { value: groupData } = await Swal.fire({
+                title: 'Crear Nuevo Grupo',
+                html: `
+                    <input id="swal-group-name" class="swal2-input w-100 mx-0 mb-4" placeholder="Nombre del Grupo">
+                    <div class="text-start mb-2 fw-bold text-muted small">Selecciona a los miembros:</div>
+                    <div class="bg-light p-3 rounded border" style="max-height: 200px; overflow-y: auto;">
+                        ${checkboxHtml}
+                    </div>
+                `,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Crear Grupo',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: 'var(--primary-color)',
+                preConfirm: () => {
+                    const name = document.getElementById('swal-group-name').value;
+                    const selectedBoxes = document.querySelectorAll('.group-member-checkbox:checked');
+                    if (!name) {
+                        Swal.showValidationMessage('El grupo debe tener un nombre');
+                        return false;
+                    }
+                    if (selectedBoxes.length === 0) {
+                        Swal.showValidationMessage('Debes seleccionar al menos un miembro');
+                        return false;
+                    }
+
+                    const userIds = Array.from(selectedBoxes).map(cb => parseInt(cb.value));
+                    return { name, userIds };
+                }
+            });
+
+            if (groupData) {
+                try {
+                    await window.DB.createGroup(groupData.name, currentUser.id, groupData.userIds);
+                    window.showSuccessModal('Grupo Creado', `El grupo "${groupData.name}" ha sido creado con éxito.`);
+                    initChatList(); // Reload the list
+                } catch(e) {
+                    window.showErrorModal('Error', 'No se pudo crear el grupo: ' + e.message);
+                }
+            }
+        };
 
         document.addEventListener('DOMContentLoaded', initChatList);
     </script>

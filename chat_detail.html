@@ -42,37 +42,62 @@
     <script src="js/layout.js"></script>
 
     <script>
-        let otherUserId;
+        let otherUserId = null;
+        let groupId = null;
         let currentUser;
         let displayedCount = 0;
+        let membersMap = {};
 
         async function initChat() {
+            if (window.initLayout) await window.initLayout('chat');
             await AuthObj.requireAuth();
-            renderNavbar('');
 
             const urlParams = new URLSearchParams(window.location.search);
-            otherUserId = parseInt(urlParams.get('id'), 10);
+            otherUserId = urlParams.get('id') ? parseInt(urlParams.get('id'), 10) : null;
+            groupId = urlParams.get('group_id') ? parseInt(urlParams.get('group_id'), 10) : null;
             currentUser = await AuthObj.getCurrentUser();
-            const otherUser = await window.DB.getUserById(otherUserId);
 
-            if (!otherUser) {
+            if (!otherUserId && !groupId) {
                 window.location.href = 'chat_list.html';
                 return;
             }
 
-            document.getElementById('chat-title').innerText = otherUser.email;
-            
-            // Handle Video Call button click
-            document.querySelector('[title="Iniciar Videollamada"]').onclick = async (e) => {
-                e.preventDefault();
-                const roomName = `AgroSmart_${Math.min(currentUser.id, otherUserId)}_${Math.max(currentUser.id, otherUserId)}`;
-                await window.DB.sendMessage({
-                    sender_id: currentUser.id,
-                    receiver_id: otherUserId,
-                    text: `[CALL_INVITE:${roomName}]`
-                });
-                window.location.href = `calls.html?room=${roomName}`;
-            };
+            // Cache users for rendering group sender names quickly
+            const allUsers = await window.DB.getAllUsers();
+            allUsers.forEach(u => membersMap[u.id] = u.email);
+
+            if (groupId) {
+                // Wait for the next tick to ensure we have myGroups loaded
+                const myGroups = await window.DB.getUserGroups(currentUser.id);
+                const currentGroup = myGroups.find(g => g.id === groupId);
+                
+                if (!currentGroup) {
+                    window.location.href = 'chat_list.html'; // Not part of this group
+                    return;
+                }
+                
+                document.getElementById('chat-title').innerHTML = `👥 ${currentGroup.name}`;
+                document.querySelector('[title="Iniciar Videollamada"]').style.display = 'none'; // No group calls yet
+            } else {
+                const otherUser = await window.DB.getUserById(otherUserId);
+                if (!otherUser) {
+                    window.location.href = 'chat_list.html';
+                    return;
+                }
+                document.getElementById('chat-title').innerText = otherUser.email;
+                
+                // Handle Video Call button click (1-to-1)
+                document.querySelector('[title="Iniciar Videollamada"]').onclick = async (e) => {
+                    e.preventDefault();
+                    const roomName = `AgroSmart_${Math.min(currentUser.id, otherUserId)}_${Math.max(currentUser.id, otherUserId)}`;
+                    await window.DB.sendMessage({
+                        sender_id: currentUser.id,
+                        receiver_id: otherUserId,
+                        text: `[CALL_INVITE:${roomName}]`
+                    });
+                    window.location.href = `calls.html?room=${roomName}`;
+                };
+            }
 
             await renderMessages();
             
@@ -87,9 +112,14 @@
         }
 
         async function renderMessages() {
-            const msgs = await window.DB.getMessages(currentUser.id, otherUserId);
-            // Mark as read
-            await window.DB.markAsRead(otherUserId, currentUser.id);
+            let msgs = [];
+            if (groupId) {
+                msgs = await window.DB.getGroupMessages(groupId);
+            } else {
+                msgs = await window.DB.getMessages(currentUser.id, otherUserId);
+                // Mark as read only in 1-to-1
+                await window.DB.markAsRead(otherUserId, currentUser.id);
+            }
 
             if (msgs.length === displayedCount && displayedCount !== 0) return;
             displayedCount = msgs.length;
@@ -102,6 +132,9 @@
                 let messageText = m.text;
                 let extraClass = '';
                 
+                // Group chat: show sender name
+                const senderLabel = (!isSent && groupId) ? `<div class="small text-muted mb-1" style="font-size:10px;">${membersMap[m.sender_id] || 'Usuario'}</div>` : '';
+
                 // Check if it's a call invitation
                 if (m.text.startsWith('[CALL_INVITE:')) {
                     const roomName = m.text.replace('[CALL_INVITE:', '').replace(']', '');
@@ -117,8 +150,9 @@
                 html += `
                     <div class="message ${isSent ? 'sent' : 'received'} ${extraClass}">
                         <div class="message-content">
+                            ${senderLabel}
                             ${messageText}
-                            <span class="message-time">${time} ${isSent && m.is_read ? '✓✓' : ''}</span>
+                            <span class="message-time">${time} ${(!groupId && isSent && m.is_read) ? '✓✓' : ''}</span>
                         </div>
                     </div>
                 `;
@@ -138,11 +172,19 @@
             const text = input.value.trim();
             if(text === '') return;
 
-            await window.DB.sendMessage({
+            const payload = {
                 sender_id: currentUser.id,
-                receiver_id: otherUserId,
                 text: text
-            });
+            };
+
+            if (groupId) {
+                payload.group_id = groupId;
+                payload.receiver_id = null; // Unused for group
+            } else {
+                payload.receiver_id = otherUserId;
+            }
+
+            await window.DB.sendMessage(payload);
 
             input.value = '';
             await renderMessages();

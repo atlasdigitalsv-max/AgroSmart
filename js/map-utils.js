@@ -4,49 +4,14 @@
  */
 
 window.getThemeTileLayer = function getThemeTileLayer(theme = document.documentElement.dataset.theme || 'light') {
-    const isDark = theme === 'dark';
-    const url = isDark
-        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-        : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-
-    const attribution = isDark
-        ? '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; OpenStreetMap contributors'
-        : '&copy; OpenStreetMap contributors';
-
-    return L.tileLayer(url, {
-        attribution,
-        maxZoom: 19,
-        subdomains: 'abcd',
-    });
+    // Leaflet 2D Maps completely removed in favor of CesiumJS 3D Globe
+    console.log("Legacy Leaflet getThemeTileLayer called (Disabled).");
+    return null;
 };
 
 window.watchThemeOnMap = function watchThemeOnMap(map) {
-    if (!map || !map.getContainer) return;
-
-    const applyCurrent = () => {
-        const newLayer = getThemeTileLayer();
-        if (map._themeLayer) {
-            map.removeLayer(map._themeLayer);
-        }
-        map._themeLayer = newLayer.addTo(map);
-    };
-
-    // Apply immediately and keep in sync with theme changes.
-    applyCurrent();
-
-    const observer = new MutationObserver((mutations) => {
-        for (const mutation of mutations) {
-            if (mutation.attributeName === 'data-theme') {
-                applyCurrent();
-                break;
-            }
-        }
-    });
-
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-
-    // Store observer to allow cleanup if needed.
-    map._themeObserver = observer;
+    // Leaflet Theme watcher disabled. Cesium 3D ignores this.
+    console.log("Legacy Leaflet watchThemeOnMap called (Disabled).");
 };
 
 window.setupMapSearch = function setupMapSearch({

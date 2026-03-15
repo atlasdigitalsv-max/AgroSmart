@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nuestros Servicios - AgroSmart Global</title>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Custom Modern CSS -->
+    <link rel="stylesheet" href="css/modern_agro.css">
+</head>
+<body class="page-body">
+    <div id="navbar-container"></div>
+
+    <main class="container py-5 mt-4">
+        <!-- New Premium Hero -->
+        <section class="service-hero text-center animate-slide-up">
+            <div class="hero-content">
+                <div class="hero-badge mb-4">
+                    <span class="badge rounded-pill bg-white text-success px-4 py-2 text-uppercase fw-bold shadow-sm">Infraestructura Nacional</span>
+                </div>
+                <h1 class="display-3 fw-800 text-white mb-3">Soluciones a Escala Global</h1>
+                <p class="lead text-white opacity-90 mx-auto mb-0" style="max-width: 800px;">
+                    Transformamos el panorama agrícola mediante tecnología de punta adaptada a las necesidades de estados y grandes corporaciones.
+                </p>
+            </div>
+        </section>
+
+        <!-- Carga y Estado del Usuario -->
+        <div id="service-loading-state" class="text-center py-5 my-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-3 text-muted">Comprobando elegibilidad...</p>
+        </div>
+
+        <div id="admin-already-active-state" class="alert border-0 shadow-sm rounded-4 p-5 text-center mb-5 animate-slide-up" style="display: none; background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px);">
+            <div id="plan-icon-container" class="fs-1 mb-3">🛡️</div>
+            <h2 id="plan-status-title" class="fw-bold mt-2 mb-2 text-dark">Plan Activo en tu Región</h2>
+            <p id="plan-status-desc" class="lead text-muted mb-4">Tu cuenta disfruta de los beneficios del plan contratado para tu país.</p>
+            
+            <div class="d-flex flex-wrap justify-content-center gap-3">
+                <div class="p-3 bg-white rounded-4 shadow-sm border border-light" style="min-width: 200px;">
+                    <div class="info-label text-uppercase mb-1" style="font-size: 10px; letter-spacing: 1px;">Nivel de Servicio</div>
+                    <div id="display-plan-name" class="fs-5 fw-800 text-agro-primary">---</div>
+                </div>
+                <div class="p-3 bg-white rounded-4 shadow-sm border border-light" style="min-width: 200px;">
+                    <div class="info-label text-uppercase mb-1" style="font-size: 10px; letter-spacing: 1px;">Miembro Desde</div>
+                    <div id="display-join-date" class="fs-5 fw-800 text-dark">---</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Solutions Grid & Pricing -->
+        <div id="pricing-section-container" style="display: none;" class="animate-slide-up">
+            <div class="text-center mb-5">
+                <h2 class="fw-bold">Elige el Plan para tu Equipo</h2>
+                <p class="text-muted">Desbloquea el poder estadístico para corporaciones, cooperativas o países completos.</p>
+            </div>
+
+            <!-- Precios (Tarjetas) -->
+            <div class="row g-4 mb-5 justify-content-center">
+                
+                <!-- Bronce -->
+                <div class="col-lg-3 col-md-6">
+                    <div class="card border-0 shadow-sm h-100 rounded-4 transition-all hover-shadow">
+                        <div class="card-body p-4 text-center d-flex flex-column">
+                            <div class="icon-box-v2 bg-light text-secondary shadow-sm mb-3 mx-auto" style="width: 50px; height: 50px; font-size: 20px;">
+                                <i class="bi bi-award"></i>
+                            </div>
+                            <h4 class="fw-bold text-dark mb-1">Bronce</h4>
+                            <div class="mb-4">
+                                <span class="fs-1 fw-900 text-dark">$70</span><span class="text-muted fw-bold">/mes</span>
+                            </div>
+                            <button class="btn btn-agro-outline w-100 py-3 rounded-pill fw-bold mt-auto" onclick="handleServiceClick('bronce')">Contactar Entidad</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Platinium -->
+                <div class="col-lg-3 col-md-6">
+                    <div class="card border-0 shadow-sm h-100 rounded-4 transition-all hover-shadow" style="border-top: 5px solid #6c757d !important;">
+                        <div class="card-body p-4 text-center d-flex flex-column">
+                            <div class="icon-box-v2 text-white shadow-sm mb-3 mx-auto" style="width: 50px; height: 50px; font-size: 20px; background: linear-gradient(135deg, #a8aaad 0%, #6c757d 100%);">
+                                <i class="bi bi-gem"></i>
+                            </div>
+                            <h4 class="fw-bold text-dark mb-1">Platinium</h4>
+                            <div class="mb-4">
+                                <span class="fs-1 fw-900 text-dark">$150</span><span class="text-muted fw-bold">/mes</span>
+                            </div>
+                            <button class="btn btn-secondary w-100 py-3 rounded-pill fw-bold mt-auto text-white shadow-sm" onclick="handleServiceClick('platinium')" style="background: #6c757d; border: none;">Contactar Entidad</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Diamante -->
+                <div class="col-lg-3 col-md-6">
+                    <div class="card border-0 shadow h-100 rounded-4 position-relative transition-all hover-shadow" style="border-top: 5px solid var(--primary-color) !important; transform: scale(1.03); z-index: 10;">
+                        <div class="position-absolute top-0 start-50 translate-middle badge rounded-pill bg-success px-3 py-2 shadow-sm text-uppercase" style="font-size: 10px; letter-spacing: 1px;">Mejor Valor</div>
+                        <div class="card-body p-4 text-center d-flex flex-column mt-2">
+                            <div class="icon-box-v2 bg-success text-white shadow-sm mb-3 mx-auto" style="width: 60px; height: 60px; font-size: 26px;">
+                                <i class="bi bi-diamond-fill"></i>
+                            </div>
+                            <h4 class="fw-bold text-success mb-1">Diamante</h4>
+                            <div class="mb-4 text-success">
+                                <span class="fs-1 fw-900">$300</span><span class="fw-bold opacity-75">/mes</span>
+                            </div>
+                            <button class="btn btn-agro-primary w-100 py-3 rounded-pill fw-bold mt-auto shadow" onclick="handleServiceClick('diamante')">Contactar Entidad</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Esmeralda -->
+                <div class="col-lg-3 col-md-6">
+                    <div class="card border-0 shadow-sm h-100 rounded-4 transition-all hover-shadow bg-dark text-white" style="border-top: 5px solid #20c997 !important;">
+                        <div class="card-body p-4 text-center d-flex flex-column">
+                            <div class="icon-box-v2 bg-white text-dark shadow-sm mb-3 mx-auto" style="width: 50px; height: 50px; font-size: 20px;">
+                                <i class="bi bi-globe-americas"></i>
+                            </div>
+                            <h4 class="fw-bold text-white mb-1">Esmeralda</h4>
+                            <div class="mb-4 text-white">
+                                <span class="fs-1 fw-900">$600</span><span class="text-white-50 fw-bold">/mes</span>
+                            </div>
+                            <button class="btn w-100 py-3 rounded-pill fw-bold mt-auto text-dark shadow-sm" onclick="handleServiceClick('esmeralda')" style="background: #20c997;">Contactar Global Owner</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabla Comparativa -->
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-5">
+                <div class="table-responsive">
+                    <table class="table table-borderless table-hover align-middle text-center mb-0" style="min-width: 800px;">
+                        <thead class="bg-light border-bottom text-muted small text-uppercase" style="letter-spacing: 1px;">
+                            <tr>
+                                <th class="text-start py-4 ps-4 w-25">Características</th>
+                                <th class="py-4 fw-bold">Bronce</th>
+                                <th class="py-4 fw-bold">Platinium</th>
+                                <th class="py-4 bg-success bg-opacity-10 text-success fw-bold">Diamante</th>
+                                <th class="py-4 bg-dark text-white fw-bold">Esmeralda</th>
+                            </tr>
+                        </thead>
+                        <tbody class="fs-6">
+                            <tr>
+                                <td class="text-start py-3 ps-4 text-muted fw-500">Límite de Agricultores</td>
+                                <td class="py-3 fw-bold">1,000</td>
+                                <td class="py-3 fw-bold">2,500</td>
+                                <td class="py-3 bg-success bg-opacity-10 fw-bold">5,000</td>
+                                <td class="py-3 bg-dark text-white fw-bold">Ilimitado</td>
+                            </tr>
+                            <tr class="border-top border-light">
+                                <td class="text-start py-3 ps-4 text-muted fw-500">Cooperativas Asignables</td>
+                                <td class="py-3 fw-bold">3</td>
+                                <td class="py-3 fw-bold">10</td>
+                                <td class="py-3 bg-success bg-opacity-10 fw-bold">25</td>
+                                <td class="py-3 bg-dark text-white fw-bold">Ilimitado</td>
+                            </tr>
+                            <tr class="border-top border-light">
+                                <td class="text-start py-3 ps-4 text-muted fw-500">Manejo de Panel de Administrador</td>
+                                <td class="py-3"><i class="bi bi-check-lg text-success fs-5"></i></td>
+                                <td class="py-3"><i class="bi bi-check-lg text-success fs-5"></i></td>
+                                <td class="py-3 bg-success bg-opacity-10"><i class="bi bi-check-lg text-success fs-5"></i></td>
+                                <td class="py-3 bg-dark text-white"><i class="bi bi-check-lg text-success fs-5"></i></td>
+                            </tr>
+                            <tr class="border-top border-light opacity-75">
+                                <td class="text-start py-3 ps-4 text-muted fw-500">Alertas Satelitales Locales</td>
+                                <td class="py-3"><i class="bi bi-x-lg text-danger fs-5 opacity-50"></i></td>
+                                <td class="py-3"><i class="bi bi-check-lg text-success fs-5"></i></td>
+                                <td class="py-3 bg-success bg-opacity-10"><i class="bi bi-check-lg text-success fs-5"></i></td>
+                                <td class="py-3 bg-dark text-white"><i class="bi bi-check-lg text-success fs-5"></i></td>
+                            </tr>
+                            <tr class="border-top border-light opacity-75">
+                                <td class="text-start py-3 ps-4 text-muted fw-500">Soporte Prioritario (Videollamada)</td>
+                                <td class="py-3"><i class="bi bi-x-lg text-danger fs-5 opacity-50"></i></td>
+                                <td class="py-3"><i class="bi bi-x-lg text-danger fs-5 opacity-50"></i></td>
+                                <td class="py-3 bg-success bg-opacity-10"><i class="bi bi-check-lg text-success fs-5"></i></td>
+                                <td class="py-3 bg-dark text-white"><i class="bi bi-check-lg text-success fs-5"></i></td>
+                            </tr>
+                            <tr class="border-top border-light opacity-75">
+                                <td class="text-start py-3 ps-4 text-muted fw-500">Jurisdicción de País Completo</td>
+                                <td class="py-3"><i class="bi bi-x-lg text-danger fs-5 opacity-50"></i></td>
+                                <td class="py-3"><i class="bi bi-x-lg text-danger fs-5 opacity-50"></i></td>
+                                <td class="py-3 bg-success bg-opacity-10"><i class="bi bi-x-lg text-danger fs-5 opacity-50"></i></td>
+                                <td class="py-3 bg-dark text-white"><i class="bi bi-check-lg text-success fs-5"></i></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Global Strategy Stats -->
+        <section class="service-card-v2 animate-slide-up animate-delay-3">
+            <div class="row align-items-center text-center text-md-start">
+                <div class="col-md-8">
+                    <h2 class="fw-800 mb-4">Nuestra Visión Estratégica</h2>
+                    <p class="text-muted lead mb-5">
+                        Digitalizamos la agricultura global país por país, convirtiendo los datos satelitales en acciones concretas que garantizan la seguridad alimentaria mundial.
+                    </p>
+                    <div class="row g-3">
+                        <div class="col-4">
+                            <div class="stat-item-v2">
+                                <h3 class="fw-800 text-agro-primary mb-0">100%</h3>
+                                <p class="small text-muted mb-0">Seguridad</p>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-item-v2">
+                                <h3 class="fw-800 text-agro-primary mb-0">Global</h3>
+                                <p class="small text-muted mb-0">Alcance</p>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-item-v2">
+                                <h3 class="fw-800 text-agro-primary mb-0">Enterprise</h3>
+                                <p class="small text-muted mb-0">Soporte</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 d-none d-md-block text-center">
+                    <img src="https://img.icons8.com/illustrations/human-resources/140/3d-fluency-globe.png" alt="Global Support" class="img-fluid animate-float">
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer py-5 mt-5">
+        <div class="container text-center">
+            <p class="text-muted mb-0">© 2026 AgroSmart Global - Una división de Smart Enterprise</p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Config & Layout -->
+    <script src="js/config.js"></script>
+    <script src="js/database.js"></script>
+    <script src="js/layout.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        // Make it globally available for onclick handlers in HTML
+        window.handleServiceClick = async function(planType) {
+            const user = await window.AuthObj.getCurrentUser();
+            
+            // Si el sistema detectó que no hay usuario real (guest o stub borrado)
+            if (!user || user.id === 'guest' || user._isStub) {
+                // Notificación rápida y redirección directa
+                const res = await Swal.fire({
+                    title: 'Inicia Sesión',
+                    text: 'Debes tener una cuenta para contactar a los Creadores Globales.',
+                    icon: 'info',
+                    confirmButtonText: 'Ir al Login',
+                    timer: 3000,
+                    timerProgressBar: true
+                });
+                window.location.href = `index.html?redirect=services`;
+                return;
+            }
+
+            try {
+                Swal.fire({
+                    title: 'Conectando con Creador Global...',
+                    text: 'Te estamos vinculando con el equipo de soporte.',
+                    allowOutsideClick: false,
+                    didOpen: () => Swal.showLoading()
+                });
+
+                const users = await window.DB.getAllUsers(user);
+                
+                // Prioridad 1: Buscar al Creador específico antoniokevin307@gmail.com
+                let targetAdmin = users.find(u => String(u.email).toLowerCase() === 'antoniokevin307@gmail.com');
+                
+                // Prioridad 2: Buscar cualquier global_owner como fallback inmediato
+                if (!targetAdmin) {
+                    targetAdmin = users.find(u => u.role === 'global_owner');
+                }
+
+                if (!targetAdmin) {
+                    throw new Error('Lo sentimos, los Creadores Globales no están disponibles en este momento.');
+                }
+
+                const planNameFormated = planType.charAt(0).toUpperCase() + planType.slice(1);
+                const initialMessage = `👋 ¡Hola! Me interesa adquirir información detallada sobre el **Plan ${planNameFormated}**. ¿Cuáles son los pasos a seguir?`;
+
+                // Enviar mensaje automático e ir al chat
+                await window.DB.sendMessage({
+                    sender_id: user.id,
+                    receiver_id: targetAdmin.id,
+                    text: initialMessage
+                });
+
+                window.location.href = `chat_detail.html?id=${targetAdmin.id}`;
+
+            } catch(e) {
+                Swal.fire('Atención', e.message || 'Error de conexión. Intente más tarde.', 'warning');
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (window.initLayout) window.initLayout();
+
+            const loadingState = document.getElementById('service-loading-state');
+            const pricingSection = document.getElementById('pricing-section-container');
+            const adminState = document.getElementById('admin-already-active-state');
+
+            try {
+                await new Promise(resolve => setTimeout(resolve, 300));
+                const user = await window.AuthObj.getCurrentUser();
+                loadingState.style.display = 'none';
+
+                console.log("[Services] Verificando acceso para:", user?.email, "Rol:", user?.role, "Plan:", user?.plan);
+
+                // OCULTAR SI: Es Admin (Global, Ministerio, Org) O si ya tiene un plan activo distinto de 'none'
+                const role = String(user?.role || '').toLowerCase();
+                const hasAdministrativeRole = ['global_owner', 'ministry_admin', 'org_admin'].includes(role);
+                const hasActivePlan = user && user.plan && user.plan !== 'none';
+                
+                // Un usuario es autenticado si tiene un ID (incluso si es un stub temporal)
+                const isAuthenticated = user && user.id && user.id !== 'guest';
+
+                if (isAuthenticated) {
+                    const countries = await window.DB.getCountries();
+                    const country = countries.find(c => String(c.id) === String(user.country_id));
+                    const countryPlan = country ? (country.plan || 'none') : 'none';
+                    
+                    const hasActiveCountryPlan = countryPlan !== 'none';
+                    const isGlobalAdmin = user.role === 'global_owner';
+
+                    if (hasActiveCountryPlan || isGlobalAdmin) {
+                        console.log("[Services] Mostrando estado de plan activo.");
+                        adminState.style.display = 'block';
+                        pricingSection.style.display = 'none';
+
+                        const planDisplay = document.getElementById('display-plan-name');
+                        const dateDisplay = document.getElementById('display-join-date');
+                        const iconContainer = document.getElementById('plan-icon-container');
+                        const statusTitle = document.getElementById('plan-status-title');
+
+                        const planName = countryPlan.toUpperCase();
+                        planDisplay.innerText = `PLAN ${planName}`;
+                        
+                        if (countryPlan === 'esmeralda' || isGlobalAdmin) {
+                            iconContainer.innerHTML = '💎';
+                            planDisplay.classList.add('text-success');
+                        } else if (countryPlan === 'diamante') {
+                            iconContainer.innerHTML = '✨';
+                            planDisplay.classList.add('text-primary');
+                        } else if (countryPlan === 'bronce') {
+                            iconContainer.innerHTML = '🏆';
+                            planDisplay.style.color = '#cd7f32';
+                        }
+
+                        const joinDate = new Date(user.date_joined).toLocaleDateString('es-ES', { 
+                            day: '2-digit', month: 'long', year: 'numeric' 
+                        });
+                        dateDisplay.innerText = joinDate;
+                        
+                        if (isGlobalAdmin) {
+                            statusTitle.innerText = "Acceso de Creador Global";
+                            planDisplay.innerText = "CORPORATIVO (FULL)";
+                        } else {
+                            statusTitle.innerText = `Plan Activo en ${country ? country.name : 'tu Región'}`;
+                        }
+
+                    } else {
+                        console.log("[Services] No hay plan de país, mostrando catálogo.");
+                        adminState.style.display = 'none';
+                        pricingSection.style.display = 'block';
+                    }
+                } else {
+                    console.log("[Services] Invitado, mostrando planes.");
+                    adminState.style.display = 'none';
+                    pricingSection.style.display = 'block';
+                }
+            } catch (err) {
+                console.warn("Error verifying session in services:", err);
+                loadingState.style.display = 'none';
+                pricingSection.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
