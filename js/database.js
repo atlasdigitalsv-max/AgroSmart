@@ -129,8 +129,8 @@ class Database {
 
         if (this.supabase) {
             try {
-                // Limit enforcement for Farmers
-                if (baseUser.role === 'farmer' && baseUser.country_id) {
+                // Limit enforcement for all regional users (everyone except corporate creators)
+                if (baseUser.role !== 'global_owner' && baseUser.country_id) {
                     const countries = await this.getCountries();
                     const country = countries.find(c => String(c.id) === String(baseUser.country_id));
                     const plan = country ? (country.plan || 'none') : 'none';
@@ -143,10 +143,10 @@ class Database {
                             .from('users')
                             .select('*', { count: 'exact', head: true })
                             .eq('country_id', baseUser.country_id)
-                            .eq('role', 'farmer');
+                            .neq('role', 'global_owner');
                         
                         if (!countErr && count >= limit) {
-                            throw new Error(`Límite de agricultores alcanzado para el plan ${plan.toUpperCase()} de este país (${limit}).`);
+                            throw new Error(`Límite de capacidad alcanzado para el plan ${plan.toUpperCase()} de este país (${limit} usuarios).`);
                         }
                     }
                 }
@@ -383,9 +383,14 @@ class Database {
     }
 
     async getCooperativasByCountry(countryId) {
+        if (!countryId || countryId === 'null') return [];
+        
         if (this.supabase) {
             const { data, error } = await this.supabase.from('organizations').select('*').eq('country_id', countryId);
-            if (error) console.error(error);
+            if (error) {
+                console.error("[Supabase] Organizations Error:", error);
+                return [];
+            }
             return data || [];
         }
         return [{ id: 1, country_id: 1, name: 'Cooperativa Agrícola SV' }];
@@ -797,25 +802,52 @@ window.AuthObj = {
     },
     logout: function() {
         sessionStorage.removeItem('current_user_id');
+        localStorage.removeItem('agrosmart_user_cache');
         window.location.href = 'index.html';
     },
     getCurrentUser: async function() {
         const id = sessionStorage.getItem('current_user_id');
-        if (!id) return null;
+        if (!id) {
+            localStorage.removeItem('agrosmart_user_cache');
+            return null;
+        }
+
+        // Try to get from persistent cache first for instant UI response
+        let cached = localStorage.getItem('agrosmart_user_cache');
+        if (cached) {
+            try {
+                const userObj = JSON.parse(cached);
+                if (String(userObj.id) === String(id)) {
+                    // Update in background but return cache immediately
+                    this.refreshUserInBackground(id);
+                    return userObj;
+                }
+            } catch(e) { /* ignore parse error */ }
+        }
+
+        return await this.refreshUser(id);
+    },
+
+    refreshUser: async function(id) {
         try {
             const user = await window.DB.getUserById(id);
             if (!user) {
-                console.warn(`[AuthObj] El usuario con ID ${id} no respondió. Manteniendo sesión con perfil temporal.`);
-                // YA NO ELIMINAMOS LA SESIÓN AQUÍ. 
-                // Devolvemos un stub para que la página sea usable mientras Supabase reconecta.
                 return { id: id, role: 'farmer', is_superuser: false, _isStub: true };
             }
-            console.log(`[AuthObj] Sesión activa: ${user.email} (${user.role})`);
+            localStorage.setItem('agrosmart_user_cache', JSON.stringify(user));
             return user;
         } catch (e) {
-            console.warn("[AuthObj] Error recuperando sesión, usando perfil temporal de seguridad:", e);
             return { id: id, role: 'farmer', is_superuser: false, _isStub: true };
         }
+    },
+
+    refreshUserInBackground: async function(id) {
+        try {
+            const user = await window.DB.getUserById(id);
+            if (user) {
+                localStorage.setItem('agrosmart_user_cache', JSON.stringify(user));
+            }
+        } catch(e) {}
     },
     requireAuth: async function() {
         const user = await this.getCurrentUser();

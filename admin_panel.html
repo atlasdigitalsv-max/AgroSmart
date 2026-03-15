@@ -256,7 +256,13 @@
                 const uniqueCountryIds = [...new Set(users.map(u => u.country_id || 'null'))].sort((a, b) => {
                     if (String(a) === String(corpId)) return -1;
                     if (String(b) === String(corpId)) return 1;
-                    return String(a).localeCompare(String(b));
+                    
+                    const countryA = countriesData.find(c => String(c.id) === String(a));
+                    const countryB = countriesData.find(c => String(c.id) === String(b));
+                    const nameA = a === 'null' ? 'ZZZ' : (countryA ? countryA.name : String(a));
+                    const nameB = b === 'null' ? 'ZZZ' : (countryB ? countryB.name : String(b));
+                    
+                    return nameA.localeCompare(nameB);
                 });
 
                 for (let i = 0; i < uniqueCountryIds.length; i++) {
@@ -281,7 +287,7 @@
                     html += `
                         <div class="accordion-item border-0 mb-3 rounded-4 shadow-sm overflow-hidden ${itemStyle}">
                             <h2 class="accordion-header">
-                                <div class="accordion-button ${i !== 0 ? 'collapsed' : ''} ${headerStyle} fw-bold py-3 d-flex align-items-center">
+                                <div class="accordion-button collapsed ${headerStyle} fw-bold py-3 d-flex align-items-center">
                                     <div class="flex-grow-1 d-flex align-items-center" data-bs-toggle="collapse" data-bs-target="#collapseCountry${i}" style="cursor:pointer;">
                                         <i class="bi ${iconClass} me-2 fs-5"></i> 
                                         ${countryName.toUpperCase()} 
@@ -296,7 +302,7 @@
                                     ` : ''}
                                 </div>
                             </h2>
-                            <div id="collapseCountry${i}" class="accordion-collapse collapse ${i === 0 ? 'show' : ''}" data-bs-parent="#usersAccordion">
+                            <div id="collapseCountry${i}" class="accordion-collapse collapse" data-bs-parent="#usersAccordion">
                                 <div class="accordion-body p-0 bg-white">
                                     ${await renderHierarchy(countryUsers, cid, `C${i}`)}
                                 </div>
@@ -485,11 +491,11 @@
                 text: 'Selecciona el plan que se aplicará a todos los administradores y usuarios de esta región.',
                 input: 'select',
                 inputOptions: {
-                    'none': 'Sin Plan (Límite 50 agricultores)',
-                    'bronce': 'Plan Bronce ($70/mes)',
-                    'platinium': 'Plan Platinium ($150/mes)',
-                    'diamante': 'Plan Diamante ($300/mes)',
-                    'esmeralda': 'Plan Esmeralda ($600/mes - Ilimitado)'
+                    'none': 'Sin Plan (Límite 50 usuarios)',
+                    'bronce': 'Plan Bronce ($350/mes)',
+                    'platinium': 'Plan Platinium ($750/mes)',
+                    'diamante': 'Plan Diamante ($1500/mes)',
+                    'esmeralda': 'Plan Esmeralda ($3000/mes - Ilimitado)'
                 },
                 inputValue: currentPlan,
                 showCancelButton: true,

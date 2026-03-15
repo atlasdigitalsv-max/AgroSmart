@@ -14,6 +14,55 @@ function toggleTheme() {
     applyTheme(current === 'dark' ? 'light' : 'dark');
 }
 
+const NAVBAR_TEMPLATE = `
+<button id="navbar-toggle" class="navbar-toggle" aria-label="Mostrar menú" aria-expanded="true">✕</button>
+<nav class="navbar open">
+    <div class="navbar-header-logo">
+        <a class="navbar-brand text-decoration-none d-flex align-items-center gap-2" href="dashboard.html">
+            <img src="img/logo.png" alt="AgroSmart Logo" style="height: 35px; width: auto; object-fit: contain;">
+            <span class="d-none d-md-inline" style="color: var(--text-main); font-weight: 800;">AgroSmart</span>
+        </a>
+    </div>
+    <div id="navbar-menu" class="navbar-menu">
+        <a href="dashboard.html" class="btn-secondary text-nowrap" data-page="dashboard">
+            <i class="bi bi-house-door me-2"></i> Inicio
+        </a>
+        <a href="catalog.html" class="btn-secondary text-nowrap" data-page="catalog" style="display: none;">
+            <i class="bi bi-book me-2"></i> Catálogo
+        </a>
+        <a href="crop_create.html" class="btn-secondary text-nowrap" data-page="crop_create" style="display: none;">
+            <i class="bi bi-plus-circle me-2"></i> Registrar
+        </a>
+        <a href="chat_list.html" class="btn-secondary position-relative text-nowrap" data-page="chat" style="display: none;">
+            <i class="bi bi-chat-dots me-2"></i> Chat
+            <span id="notificationBadge" class="notification-bubble" style="display:none;">0</span>
+        </a>
+        <a href="calls.html" class="btn-secondary text-nowrap" data-page="calls" id="nav-calls-link" style="display: none;">
+            <i class="bi bi-camera-video me-2"></i> Videollamadas
+        </a>
+        <a href="plan_dashboard.html" class="btn-secondary text-nowrap" id="nav-plan-link" data-page="plan" style="display: none;">
+            <i class="bi bi-activity me-2"></i> Mi Plan
+        </a>
+        <a href="admin_panel.html" class="btn-secondary admin-panel-btn" data-page="admin_panel" id="nav-admin-link" style="display: none;">
+            <i class="bi bi-speedometer2 me-2"></i> Administración
+        </a>
+        <a href="services.html" class="btn-secondary text-nowrap" data-page="services">
+            <i class="bi bi-gear-wide-connected me-2"></i> Servicios
+        </a>
+        <a href="about.html" class="btn-secondary text-nowrap" data-page="about">
+            <i class="bi bi-info-circle me-2"></i> Nosotros
+        </a>
+        <a href="contact.html" class="btn-secondary text-nowrap" data-page="contact" style="display: none;">
+            <i class="bi bi-envelope me-2"></i> Contacto
+        </a>
+        
+        <div id="auth-nav-container">
+            <!-- Dynamic Login/Logout button -->
+        </div>
+    </div>
+</nav>
+`;
+
 async function renderNavbar(activePage) {
     const user = (typeof AuthObj !== 'undefined') ? await AuthObj.getCurrentUser() : null;
 
@@ -25,12 +74,10 @@ async function renderNavbar(activePage) {
     // List of pages that don't require login
     const publicPages = ['index.html', 'dashboard.html', 'services.html', 'about.html', 'contact.html', 'catalog.html'];
     const currentPath = window.location.pathname.toLowerCase();
+    const fileName = currentPath.split('/').pop() || 'index.html';
     
-    // Fallback: If currentPath is just '/' or '', treat it as index.html
-    const isRoot = currentPath === '/' || currentPath === '' || currentPath.endsWith('/');
-    
-    // Check if current page is public
-    const isPublicPage = isRoot || publicPages.some(page => currentPath.includes(page));
+    // Check if current page is public (Exact match for the file name)
+    const isPublicPage = publicPages.includes(fileName);
 
     // If not public and no user, Redirect to login
     if (!user && !isPublicPage) {
@@ -49,24 +96,29 @@ async function renderNavbar(activePage) {
     const container = document.getElementById('navbar-container') || document.getElementById('main-navbar');
     if (!container) return;
 
-    try {
-        // Try absolute path first, then relative fallback
-        const response = await fetch('/components/navbar.html').catch(() => fetch('components/navbar.html'));
-        if (!response.ok) throw new Error('Failed to load navbar');
-        const navbarHTML = await response.text();
-        container.innerHTML = navbarHTML;
-    } catch (error) {
-        console.error('Navbar error:', error);
-        // Fallback: minimal navbar if fetch fails
-        container.innerHTML = `
-            <nav class="navbar collapsed">
-                <button id="navbar-toggle" class="navbar-toggle">☰</button>
-                <div id="navbar-menu" class="navbar-menu collapsed">
-                    <a href="dashboard.html" data-page="dashboard">Inicio</a>
-                    <a href="index.html">Entrar</a>
-                </div>
-            </nav>
-        `;
+    const isLocalFile = window.location.protocol === 'file:';
+
+    // STRICT LOCAL CHECK: Avoid fetch entirely on file:// to prevent CORS errors in console
+    if (isLocalFile) {
+        container.innerHTML = NAVBAR_TEMPLATE;
+        console.info('AgroSmart: Cargando UI interna (Protocolo local file://)');
+    } else {
+        try {
+            let response;
+            try {
+                response = await fetch('components/navbar.html');
+            } catch (e) {
+                response = await fetch('/components/navbar.html');
+            }
+
+            if (response && response.ok) {
+                container.innerHTML = await response.text();
+            } else {
+                container.innerHTML = NAVBAR_TEMPLATE;
+            }
+        } catch (error) {
+            container.innerHTML = NAVBAR_TEMPLATE;
+        }
     }
 
     const isAdmin = user && (user.is_superuser || ['global_owner', 'ministry_admin', 'org_admin'].includes(user.role));
@@ -87,14 +139,31 @@ async function renderNavbar(activePage) {
     // Navigation items that require login
     const protectedItems = container.querySelectorAll('[data-page="catalog"], [data-page="crop_create"], [data-page="chat"], [data-page="contact"]');
     const callsLink = container.querySelector('#nav-calls-link');
+    const planLink = container.querySelector('#nav-plan-link');
     
+    // Hide all role-based items by default to prevent flicker
+    if (adminLink) adminLink.style.display = 'none';
+    if (callsLink) callsLink.style.display = 'none';
+    if (planLink) planLink.style.display = 'none';
+    protectedItems.forEach(item => item.style.display = 'none');
+
     if (user) {
+        console.log(`AgroSmart UI: Usuario detectado (${user.role}). Actualizando visibilidad...`);
         // Show for logged in users
-        protectedItems.forEach(item => item.style.display = 'flex');
+        protectedItems.forEach(item => {
+            item.style.setProperty('display', 'flex', 'important');
+        });
         
         // Admin Visibility
         if (adminLink) {
-            adminLink.style.display = isAdmin ? 'flex' : 'none';
+            console.log(`AgroSmart UI: isAdmin=${isAdmin}`);
+            adminLink.style.setProperty('display', isAdmin ? 'flex' : 'none', 'important');
+        }
+
+        // Plan Dashboard Visibility (Global Owner & Ministry Admin)
+        if (planLink) {
+            const canViewPlan = ['global_owner', 'ministry_admin'].includes(user.role);
+            planLink.style.setProperty('display', canViewPlan ? 'flex' : 'none', 'important');
         }
 
         // Calls Visibility (Plan-based)
