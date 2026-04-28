@@ -803,7 +803,7 @@ window.AuthObj = {
         localStorage.removeItem('agrosmart_user_cache');
         window.location.href = 'index.html';
     },
-    getCurrentUser: async function() {
+    getCurrentUser: async function(forceRefresh = false) {
         const id = sessionStorage.getItem('current_user_id');
         if (!id) {
             localStorage.removeItem('agrosmart_user_cache');
@@ -811,16 +811,18 @@ window.AuthObj = {
         }
 
         // Try to get from persistent cache first for instant UI response
-        let cached = localStorage.getItem('agrosmart_user_cache');
-        if (cached) {
-            try {
-                const userObj = JSON.parse(cached);
-                if (String(userObj.id) === String(id)) {
-                    // Update in background but return cache immediately
-                    this.refreshUserInBackground(id);
-                    return userObj;
-                }
-            } catch(e) { /* ignore parse error */ }
+        if (!forceRefresh) {
+            let cached = localStorage.getItem('agrosmart_user_cache');
+            if (cached) {
+                try {
+                    const userObj = JSON.parse(cached);
+                    if (String(userObj.id) === String(id)) {
+                        // Update in background but return cache immediately
+                        this.refreshUserInBackground(id);
+                        return userObj;
+                    }
+                } catch(e) { /* ignore parse error */ }
+            }
         }
 
         return await this.refreshUser(id);

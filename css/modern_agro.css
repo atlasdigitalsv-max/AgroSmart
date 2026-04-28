@@ -766,12 +766,12 @@ input:focus, select:focus, textarea:focus, .form-control:focus {
     animation: slideUpFade 0.4s ease-out forwards;
 }
 
-.navbar {
-    background: var(--navbar-bg);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border-right: 1px solid var(--navbar-border);
-    box-shadow: 4px 0 12px rgba(0,0,0,0.05);
+nav.navbar, .navbar {
+    background: var(--navbar-bg) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    border-right: 1px solid var(--navbar-border) !important;
+    box-shadow: 4px 0 12px rgba(0,0,0,0.05) !important;
     padding: 18px 16px !important;
     width: 260px !important;
     height: 100vh !important;
@@ -781,10 +781,12 @@ input:focus, select:focus, textarea:focus, .form-control:focus {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
+    right: auto !important;
     transform: translateX(0) !important;
     z-index: 99999 !important;
     display: flex !important;
     flex-direction: column !important;
+    flex-wrap: nowrap !important;
     align-items: flex-start !important;
     justify-content: flex-start !important;
     gap: 8px !important;
@@ -799,20 +801,22 @@ input:focus, select:focus, textarea:focus, .form-control:focus {
 
 .navbar-header-logo {
     display: flex !important;
+    flex-direction: row !important; /* Logo and text can be row */
     align-items: center !important;
-    justify-content: space-between !important;
+    justify-content: flex-start !important;
     width: 100% !important;
     margin-bottom: 24px !important;
     padding-bottom: 12px !important;
     border-bottom: 1px solid rgba(0,0,0,0.05);
     flex-shrink: 0 !important;
-    padding-right: 40px !important; /* Make room for toggle ✕ when open */
-    padding-left: 60px !important; /* Make room for toggle ✕ on the left */
+    padding-right: 0 !important;
+    padding-left: 45px !important; 
 }
 
 .navbar-menu {
     display: flex !important;
     flex-direction: column !important;
+    align-items: stretch !important;
     width: 100% !important;
     gap: 8px !important;
     flex-grow: 1 !important;
@@ -919,7 +923,6 @@ body.sidebar-collapsed {
 .navbar-menu .btn-secondary:hover {
     background: var(--agro-light-bg) !important;
     color: var(--primary-color) !important;
-    transform: translateX(4px);
 }
 
 .navbar-menu .btn-secondary.active {

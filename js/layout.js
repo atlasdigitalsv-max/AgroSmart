@@ -33,6 +33,9 @@ const NAVBAR_TEMPLATE = `
         <a href="crop_create.html" class="btn-secondary text-nowrap" data-page="crop_create" style="display: none;">
             <i class="bi bi-plus-circle me-2"></i> Registrar
         </a>
+        <a href="moon_calendar.html" class="btn-secondary text-nowrap" data-page="moon" style="display: none;">
+            <i class="bi bi-moon-stars me-2"></i> Calendario Lunar
+        </a>
         <a href="chat_list.html" class="btn-secondary position-relative text-nowrap" data-page="chat" style="display: none;">
             <i class="bi bi-chat-dots me-2"></i> Chat
             <span id="notificationBadge" class="notification-bubble" style="display:none;">0</span>
@@ -64,7 +67,8 @@ const NAVBAR_TEMPLATE = `
 `;
 
 async function renderNavbar(activePage) {
-    const user = (typeof AuthObj !== 'undefined') ? await AuthObj.getCurrentUser() : null;
+    // Force fresh user data to prevent "stale role" bugs when changing roles
+    const user = (typeof AuthObj !== 'undefined') ? await AuthObj.getCurrentUser(true) : null;
 
     // Ejecución silenciosa y automática de limpieza de base de datos a medianoche
     if (window.DB && typeof window.DB.runMidnightChatCleanup === 'function') {
@@ -136,7 +140,7 @@ async function renderNavbar(activePage) {
     }
 
     // Navigation items that require login
-    const protectedItems = container.querySelectorAll('[data-page="catalog"], [data-page="crop_create"], [data-page="chat"], [data-page="contact"]');
+    const protectedItems = container.querySelectorAll('[data-page="catalog"], [data-page="crop_create"], [data-page="moon"], [data-page="chat"], [data-page="contact"]');
     const callsLink = container.querySelector('#nav-calls-link');
     const planLink = container.querySelector('#nav-plan-link');
     
@@ -183,20 +187,24 @@ async function renderNavbar(activePage) {
             planLink.style.setProperty('display', canViewPlan ? 'flex' : 'none', 'important');
         }
 
-        // Calls Visibility (Plan-based)
+        // Calls Visibility (Plan-based or Global Owner)
         if (callsLink) {
-            const countries = await window.DB.getCountries();
-            const country = countries.find(c => String(c.id) === String(user.country_id));
-            const plan = country ? (country.plan || 'none') : 'none';
-            const hasCallPlan = ['diamante', 'esmeralda'].includes(plan);
+            let hasCallPlan = false;
+            try {
+                const countries = await window.DB.getCountries();
+                const country = countries.find(c => String(c.id) === String(user.country_id));
+                const plan = country ? (country.plan || 'none') : 'none';
+                hasCallPlan = ['diamante', 'esmeralda'].includes(plan);
+            } catch(e) { console.warn("Plan check failed", e); }
             
-            callsLink.style.display = (user.role === 'global_owner' || hasCallPlan) ? 'flex' : 'none';
+            callsLink.style.setProperty('display', (user.role === 'global_owner' || hasCallPlan) ? 'flex' : 'none', 'important');
         }
     } else {
-        // Hide for guests
+        // Hide protected items for guests
         protectedItems.forEach(item => item.style.display = 'none');
         if (adminLink) adminLink.style.display = 'none';
         if (callsLink) callsLink.style.display = 'none';
+        if (planLink) planLink.style.display = 'none';
     }
 
     // Auth Button
